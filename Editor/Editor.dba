@@ -1,0 +1,531 @@
+Set Window On
+Set Window Layout 0,0,0
+Set Display Mode 640,480,32
+
+Set Dir "..\"
+
+Set Window Skin ".\media\skin.bmp",0,0,0
+
+Sync On : Sync Rate 0
+
+Global mapoffx As Integer = 95
+Global mapoffy As Integer = 15
+Global maptilesize As Integer = 30
+Global avatardelay As Integer = 50
+Global mouseselect As Integer = 0
+
+Global fps As Integer
+
+Global tmp As Integer
+
+Type locations
+   x1 As Integer
+   y1 As Integer
+   x2 As Integer
+   y2 As Integer
+   active As Boolean
+EndType
+
+Type menustuff
+   text As String
+   text1 As String
+   text2 As String
+   active As Boolean
+EndType
+
+Type levelstuff
+   name As String
+   info As String
+   lives As String
+EndType
+
+Type maps
+   s As Integer
+   d As Integer
+EndType
+
+
+Dim levels(-1) As levelstuff
+
+
+`0 = game area
+`1 = Interface section
+`2 = Items section
+`3 = Menu section
+`4 = GO!
+`5 = RESET!
+Dim loc(5) As locations
+
+loc(0).x1 = 95 : loc(0).y1 = 15 : loc(0).x2 = 545 : loc(0).y2 = 315
+loc(1).x1 = 95 : loc(1).y1 = 345 : loc(1).x2 = 545 : loc(1).y2 = loc(1).y1 + 90
+
+loc(2).x1 = 200 : loc(2).y1 = loc(1).y1 : loc(2).x2 = 440 : loc(2).y2 = loc(1).y2
+loc(3).x1 = loc(2).x2 : loc(3).y1 = loc(1).y1 : loc(3).x2 = loc(1).x2 : loc(3).y2 = loc(1).y2
+
+loc(4).x1 = 0
+loc(5).x1 = 0
+
+Dim menus(0,2) As menustuff
+
+menus(0,0).text1 = "Menu"
+menus(0,0).text2 = menus(0,0).text1
+menus(0,0).text = menus(0,0).text1
+
+menus(0,1).text1 = "Options"
+menus(0,1).text2 = menus(0,1).text1
+menus(0,1).text = menus(0,1).text1
+
+menus(0,2).text1 = "Audio Off"
+menus(0,2).text2 = "Audio On"
+menus(0,2).text = menus(0,2).text1
+
+Dim use(7) As Integer
+Dim map(15,10) As maps
+Dim tex(15,10) As Integer
+
+
+For y = 1 To 10
+   For x = 1 To 15
+      tex(x,y) = Rnd(9) + 1
+   Next x
+Next y
+
+For y = 1 To 10
+   For x = 1 To 15
+      map(x,y).s = 20
+   Next x
+Next y
+
+
+
+`############ GAME IMAGES LOADING TIME #############
+
+   Create Animated Sprite 1,".\media\1.png",19,1,1
+   Sprite 1,-100,-100,1
+   Set Sprite Priority 1,41
+   Size Sprite 1,30,30
+
+   For i = 2 To 8
+      Create Animated Sprite i,".\media\" + Str$(i) + ".png",2,1,i
+      Sprite i,-100,-100,i
+      Set Sprite Priority i,i + 40
+      Size Sprite i,30,30
+   Next i
+
+   Create Animated Sprite 10,".\media\10.png",8,8,10
+   Sprite 10,-100,-100,10
+   Set Sprite Priority 10,50
+`   Offset Sprite 10,15,15
+   Size Sprite 10,40,40
+
+   Create Animated Sprite 11,".\media\11.png",8,8,11
+   Sprite 11,-100,-100,11
+   Set Sprite Priority 11,50
+`   Offset Sprite 11,15,15
+   Size Sprite 11,40,40
+
+   Create Animated Sprite 20,".\media\20.png",5,1,20
+   Sprite 20,-100,-100,20
+   Set Sprite Priority 20,1
+   Size Sprite 20,30,30
+
+   Load Image ".\media\19.png",19,1
+   Sprite 19,-100,-100,19
+   Set Sprite Priority 19,1
+
+   For i = 21 To 40
+      Load Image ".\media\" + Str$(i) + ".png",i,1
+      Sprite i,-100,-100,i
+      Set Sprite Priority i,i - 19
+   Next i
+`############ END GAME IMAGES LOADING TIME #############
+
+
+`########## SET UP FOR MAIN INTERFACE #############
+   `Use this base-image for dragging of the window.
+   Load Image ".\media\skin-drag.png",100,1
+   Make MemBlock From Image 100,100
+
+   `The main window buttons and images
+   Load Image ".\media\main-interface.png",101,1
+   Load Image ".\media\close-normal.png",102,1
+   Load Image ".\media\minimise-normal.png",103,1
+   Load Image ".\media\close-pressed.png",104,1
+   Load Image ".\media\minimise-pressed.png",105,1
+
+   Sprite 101,-500,-500,103
+   Sprite 102,-500,-500,102
+   Sprite 103,-1000,-1000,101
+
+   Set Sprite Priority 103,101
+   Set Sprite Priority 101,102
+   Set Sprite Priority 102,102
+
+   BackDrop On
+   Color BackDrop RGB(255,255,0)
+
+   `Initialise the D3Dfunc dll
+   InitD3D
+   Set Font 1,"Arial Narrow",10,1,0
+   Set Font 10,"Courier New",10,1,0
+`########## END SET UP FOR MAIN INTERFACE #############
+
+
+`########  -- Initialize variables for Input gadgets --  ########
+   Global totinp As Integer :`Total input feilds
+   Global ld As Boolean    :`LeftKey Down?
+   Global rd As Boolean    :`RightKey Down?
+   Global td As Boolean    :`TabKey Down?
+
+   Type uin
+      str As String        `The input string
+      strlen As DWord      `The length of the input string
+      x As Integer         `The x screen coord of the string
+      y As Integer         `The y screen coord
+      pos As DWord         `The cursor position in the string
+      posx As Integer      `The x screen coord of the cursor
+      posy As Integer      `The y screen coord of the cursor
+      flashtime As DWord   `The time between flash's
+      flash As DWord       `The time of the last flash
+      carret As String     `The string used to be the cursor
+      onoff As Integer     `If the cursor is to be shown or not
+      act As Boolean       `Is this input gadget active?
+      num As Integer       `What type of input is this? ( see _init_input() for types )
+      max As Integer       `Maximum amount of characters that can be entered
+      tab As Integer       `Tab Order of input boxes ( 1 is the first Tab and so on )
+   EndType
+
+   totinp = 0              :`There is no input gadgets yet
+
+   Global Dim in(totinp) As uin
+
+   in(0).x = 100
+   in(0).y = 100
+   in(0).flashtime = 400
+   in(0).carret = "|"
+   in(0).act = 1
+`########  -- End Input initialization --  ########
+
+Clear Entry Buffer
+
+test = _input_init(460,345,0,100)
+
+use(0) = _input_init(260,345,1,0)
+
+For i = 1 To 7
+   use(i) = _input_init(195 + (i * 30),410,1,0)
+Next i
+
+For i = 0 To 7
+   _input_change(use(i),"0")
+Next i
+
+_input_set_active(test)
+
+file As String
+
+
+Do
+
+   fps = Screen FPS()
+
+   _display()
+
+   _interface()
+
+   StartText
+   _input()
+   EndText
+
+   `Left-Mouse-Click stuffskies
+   If MouseClick() = 1 : If lmb = 0 : lmb = 1
+   `** On KeyDown **
+
+      `Some image swapping for the Buttons on the Interface
+      If _dist(MouseX(),MouseY(),590,53) <= 10
+         Set Sprite Image 102,104
+      Else
+         Set Sprite Image 102,102
+         If _dist(MouseX(),MouseY(),566,37) <= 10
+            Set Sprite Image 101,105
+         Else
+            Set Sprite Image 101,103
+         EndIf
+      EndIf
+
+      `Some nifty window dragging for the user.
+      `Only drag the window if we're not clicking any of the buttons!
+      If _can_drag(MouseX(),MouseY())
+         Drag Window
+      EndIf
+
+   `** End On Down **
+   Else
+   `** While KeyHeld **
+
+   `** End Held **
+   EndIf : Else : If lmb = 1 : lmb = 0
+   `** On KeyUp **
+
+      If _dist(MouseX(),MouseY(),590,53) <= 10
+         Set Sprite Image 102,102
+         End
+      EndIf
+
+      If _dist(MouseX(),MouseY(),566,37) <= 10
+         Set Sprite Image 101,103
+         Minimize Window
+      EndIf
+
+      `What to do when an item is dropped
+      If mouseselect <> 0
+         If _inzone(loc(0).x1,loc(0).y1,loc(0).x2,loc(0).y2,MouseX(),MouseY())
+            tmpx = Int((MouseX() - mapoffx)/30) + 1
+            tmpy = Int((MouseY() - mapoffy)/30) + 1
+            map(tmpx,tmpy).s = mouseselect
+         EndIf
+         If mouseselect >= 10 And mouseselect <= 13
+            avtype = 1
+         Else
+            map(tmpx,tmpy).d = 0
+            avtype = 0
+         EndIf
+         mouseselect = 0
+      EndIf
+
+   `** End On Up **
+   EndIf : EndIf
+
+
+   If mouseselect <> 0
+      If Sprite Exist(mouseselect)
+         Paste Sprite mouseselect,MouseX() - 15,MouseY() - 15
+      Else
+         mouseselect = 0
+      EndIf
+   EndIf
+
+
+   `Setting the direction of the avatars.
+   If avtype <> 0
+      If UpKey() Then map(tmpx,tmpy).d = 1 : avtype = 0
+      If RightKey() Then map(tmpx,tmpy).d = 2 : avtype = 0
+      If DownKey() Then map(tmpx,tmpy).d = 3 : avtype = 0
+      If LeftKey() Then map(tmpx,tmpy).d = 4 : avtype = 0
+   EndIf
+
+
+   If KeyState(41) = 1 : If sbutt = 0 : sbutt = 1
+   `** On KeyDown **
+      If NOT ShiftKey()
+         file = _open_save("Game Files ( *.gam )|*.gam|",get dir$(),"Save File","gam",0)
+         If File Exist(file) Then Delete File file
+         Open To Write 1,file
+         `Lives, CW, CCW, Reverse, up, down, right, left
+         For i = 0 To 7
+            Write Word 1,Val(_input_get(use(i)))
+         Next i
+         For y = 1 To 10
+            For x = 1 To 15
+               Write Word 1,tex(x,y)
+               Write Word 1,map(x,y).s
+               If map(x,y).d <> 0
+                  Write Word 1,map(x,y).d
+               EndIf
+            Next x
+         Next y
+         Close File 1
+      Else
+         file = _open_save("Game Files ( *.gam )|*.gam|",get dir$(),"Open File","gam",1)
+         Open To Read 1,file
+         `Lives, CW, CCW, Reverse, up, down, right, left
+         For i = 0 To 7
+            Read Word 1,tmp
+            _input_change(use(i),Str$(tmp))
+         Next i
+         For y = 1 To 10
+            For x = 1 To 15
+               tex(x,y) = 0
+               map(x,y).s = 0
+               map(x,y).d = 0
+               Read Word 1,tex(x,y)
+               Read Word 1,map(x,y).s
+               If map(x,y).s >= 10 And map(x,y).s <= 13
+                  Read Word 1,map(x,y).d
+               EndIf
+            Next x
+         Next y
+         Close File 1
+      EndIf
+   `** End On Down **
+   Else
+   `** While KeyHeld **
+   `** End Held **
+   EndIf : Else : If sbutt = 1 : sbutt = 0
+   `** On KeyUp **
+   `** End On Up **
+   EndIf : EndIf
+
+
+   If ReturnKey() : If rkey = 0 : rkey = 1
+   `** On KeyDown **
+      If avtype = 0 Then mouseselect = Val(_input_get(test))
+   `** End On Down **
+   Else
+   `** While KeyHeld **
+   `** End Held **
+   EndIf : Else : If rkey = 1 : rkey = 0
+   `** On KeyUp **
+   `** End On Up **
+   EndIf : EndIf
+
+
+   `In-game Menu items...
+   StartText
+   draw color 0,0,0,100
+   Text AA 1,500,440,1,"FPS = " + Str$(fps)
+   Text AA 1,250,345,2,"Lives:"
+   Text AA 1,450,345,2,"Current Tile:"
+   EndText
+
+Sync
+Loop
+
+
+
+
+
+Function _dist(x1,y1,x2,y2)
+   flt As Float
+   null = Make Vector2(1)
+   Set Vector2 1,x1 - x2,y1 - y2
+   flt = Length Vector2(1)
+EndFunction flt
+
+
+
+Function _inzone(x1,y1,x2,y2,x,y)
+   Local in As Boolean
+   in = 0
+   If x >= x1
+      If x <= x2
+         If y >= y1
+            If y <= y2 Then in = 1
+         EndIf
+      EndIf
+   EndIf
+EndFunction in
+
+
+
+Function _interface()
+
+   `Sprites for click and drag peices.
+   For i = 2 To 8
+      Paste Sprite i,(i-2)*30 + 215,375
+   Next i
+
+   `The Window sprites ( Window / X / _ )
+   Paste Sprite 103,0,0
+   Paste Sprite 101,566 - Sprite Width(101)/2,37 - Sprite Height(101)/2
+   Paste Sprite 102,590 - Sprite Width(102)/2,53 - Sprite Height(102)/2
+
+EndFunction
+
+
+
+Function _display()
+
+   For y = 1 To 10
+      For x = 1 To 15
+         Set Sprite Frame 20,tex(x,y)
+         Paste Sprite 20,((x - 1) * maptilesize) + mapoffx,((y - 1) * maptilesize) + mapoffy
+         If Sprite Exist(map(x,y).s) Then Paste Sprite map(x,y).s,((x - 1) * maptilesize) + mapoffx,((y - 1) * maptilesize) + mapoffy
+         If NOT ControlKey() Then Paste Sprite 19,((x - 1) * maptilesize) + mapoffx,((y - 1) * maptilesize) + mapoffy
+      Next x
+   Next y
+
+EndFunction
+
+
+
+Function _can_drag(x As Integer,y As Integer)
+
+   Local result As Boolean
+   result = 0
+
+   If MemBlock DWord(100,((y*MemBlock DWord(100,0)) + x)*4 + 12) <> RGB(255,255,255)
+      result = 1
+      Paste Image 101,0,0
+   EndIf
+
+EndFunction result
+
+
+
+`1 = home square
+`2 = Rotate CW
+`3 = Rotate CCW
+`4 = Reverse Direction
+`5 = up arrow
+`6 = down arrow
+`7 = right arrow
+`8 = left arrow
+
+`10 = Avatar Type 1 - CW
+`11 = Avatar Type 2 - CCW
+`12 = Avatar Type 3 - CW Enemy
+`13 = Avatar Type 4 - CCW Enemy
+`Following an avatar is a second data item which
+`  tells which direction the avatar is facing in.
+`  1 = up
+`  2 = right
+`  3 = down
+`  4 = left
+
+`20 = normal terrain
+`21 = wall - horizontal
+`22 = wall - verticle
+`23 = wall - top-right corner
+`24 = wall - top-left corner
+`25 = wall - bottom-right corner
+`26 = wall - bottom-left corner
+`27 = rock
+`28 = water
+`29 = water - bottom
+`30 = water - top
+`31 = water - right
+`32 = water - left
+`33 = water - top-right corner
+`34 = water - top-left corner
+`35 = water - bottom-right corner
+`36 = water - bottom-left corner
+`37 = water - top-right inner corner
+`38 = water - top-left inner corner
+`39 = water - bottom-right inner corner
+`40 = water - bottom-left inner corner
+
+`Any number above or equal to 100 represents a teleport,
+`  There should be (only) two squares with the same
+`  number, which represents the teleport to/from locations
+`  without discrepency of which direction the travel is in
+level1name:
+Data "Introduction"
+
+level1info:
+Data "Ok, so here's an Introduction to what is going on in this crazy world...[n]First Off, I would like to introduce Little Billy; [img:blahblah.png][n]Little Billy is just like a Lemming. He'll walk and walk no matter where he goes.[n]However, Little Billy does have a unique feature. Everytime he walks into an obsticle, he turns right, and continues on his way.[n]Let's follow this simple level, and see what happens."
+
+level1data:
+`Lives, CW, CCW, Reverse, up, down, right, left
+Data -1,0,0,0,0,0,0,0
+`Scenery and Object data
+Data 20,20,24,21,21,21,21,21,21,21,21,21,23,20,20
+Data 20,20,22,20,20,20,20,20,20,20,20,20,22,20,20
+Data 24,21,25,20,27,20,20,20,20,20,20,20,26,21,23
+Data 22,20,20,20,20,20,20,20,20,20,20, 1,20,20,22
+Data 22,20,20,20,20,20,20,20,20,20,20,20,20,20,22
+Data 22,20,20,20,20,20,20,20,20,20,20,20,20,20,22
+Data 22,20,20,20,20,20,20,20,20,20,20,20,20,20,22
+Data 22,20,11,1,20,10,1,20,20,20,20,20,20,20,20,20,22
+Data 22,20,20,20,20,20,20,20,20,20,20,20,20,20,22
+Data 26,21,21,21,21,21,21,21,21,21,21,21,21,21,25

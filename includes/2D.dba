@@ -1,0 +1,170 @@
+Remstart Funcitons contained;
+
+   _centre_justify(x1,y1,x2,y2,str,encase,ptr)
+      Vertically and Horizontally justify's the given string
+      If encase is not 0, a white box is drawn around the string with the buffer of value encase.
+
+      ptr Should be a pointer to a pre-created memory area of 9 bytes,
+        this is used to return the values, in the form:
+           xpos, 4 BYTES ( DWord )
+           ypos, 4 BYTES ( DWord )
+           inbox, 1 BYTE ( BYTE )
+
+
+   _wrap_text(x,y,width,str)
+      Will wrap and paste the text within x and x+ width, starting at y.
+      Returns the final y position of the pasted text.
+      There is no limit on height of text.
+
+
+   _2D_dist(x1,y1,x2,y2)
+      Gets the distance between (x1,y1) and (x2,y2)
+
+
+   _box(x1,y1,x2,y2)
+      Draws an unfilled box using (x1,y1) as the upper left coord and (x2,y2) as the lower right coord
+
+
+   _octagon(x1,y1,x2,y2,x3,y3,x4,y4,x5,y5,x6,y6,x7,y7,x8,y8)
+      Draws an unfilled octagon using the provided coordinates
+RemEnd
+
+
+
+
+
+
+
+Function _centre_justify(x1 As Integer,y1 As Integer,x2 As Integer,y2 As Integer,str As String,encase As Integer,ptr As Dword)
+   `Vertically and Horizontally justify's the given string
+   `If encase is not 0, a white box is drawn around the string with the buffer of value encase.
+
+   `ptr Should be a pointer to a pre-created memory area of 9 bytes,
+   `  this is used to return the values, in the form:
+   `     xpos, 4 BYTES ( DWord )
+   `     ypos, 4 BYTES ( DWord )
+   `     inbox, 1 BYTE ( BYTE )
+
+   inbox As Byte
+   strlen As Integer
+   strhei As Integer
+   cx As Integer
+   cy As Integer
+   strx As DWord
+   stry As DWord
+
+   inbox = 0
+
+   strlen = Text Width(str)
+   strhei = Text Height(str)
+
+   cx = Int((x2 + x1) / 2)    :`The centre of the justify'd position (x)
+   cy = Int((y2 + y1) / 2)    :`The centre of the justify'd position (y)
+
+   strx = cx - (strlen / 2)   :`The top-left position of the string
+   stry = cy - (strhei / 2)
+
+
+   If encase > 0
+      boxx1 = (strx - encase)
+      boxy1 = (stry - encase)
+      boxx2 = (strx + strlen + encase)
+      boxy2 = (stry + strhei + encase)
+      Line boxx1,boxy1,boxx2,boxy1  :`Top Line Of Box
+      Line boxx2,boxy1,boxx2,boxy2  :`Right Line
+      Line boxx2,boxy2,boxx1,boxy2  :`Bottom Line
+      Line boxx1,boxy2,boxx1,boxy1  :`Left Line
+      inbox = _inzone(MouseX(),MouseY(),boxx1,boxy1,boxx2,boxy2)
+   Else
+      inbox = _inzone(MouseX(),MouseY(),strx,stry,strx + strlen,stry + strhei)
+   EndIf
+
+   *ptr = strx : Inc ptr,4
+   *ptr = stry : Inc ptr,4
+   *ptr = inbox
+
+
+EndFunction
+
+
+
+Function _wrap_text(x As Integer,y As Integer,width As Integer,str As String)
+   `Wraps the text inside the given area
+
+   height As Integer
+   space As Integer
+   start As Integer
+   strx As DWord
+   stry As DWord
+   ptr As DWord
+   retval As Integer
+
+   height = Text Height("|")
+   space = 0
+   start = 1
+   ptr = Make Memory(9)
+   retval = 0
+
+   For i = 1 To Len(str)
+      If Mid$(str,i) = " " Then space = i
+
+      tmpstr$ = Right$(Left$(str,i),i - start)
+
+      If (Text Width(Right$(Left$(str,(space - 1)),space - start)) * 2) > width
+         _centre_justify(x,y,width + x,y + height,Right$(Left$(str,(space - 1)),space - start),0,ptr)
+         strx = *ptr : Inc ptr,4
+         stry = *ptr : Dec ptr,4
+         Text strx,stry,Right$(Left$(str,(space - 1)),space - start)
+         Inc y,height
+         start = space + 1
+      Else
+         If i = Len(str)
+            _centre_justify(x,y,width + x,y + height,Right$(Left$(str,i),i - (start - 1)),0,ptr)
+            strx = *ptr : Inc ptr,4
+            stry = *ptr : Dec ptr,4
+            Text strx,stry,Right$(Left$(str,i),i - (start - 1))
+         EndIf
+      EndIf
+   Next i
+
+   Delete Memory ptr
+
+   retval = (y + height)
+
+EndFunction retval
+
+
+
+Function _2D_dist(x1 As Integer,y1 As Integer,x2 As Integer,y2 As Integer)
+
+   retval = 0
+   retval = Sqrt((x2 - x1)^2 + (y2 - y1)^2)
+
+EndFunction retval
+
+
+
+Function _box(x1 As Integer,y1 As Integer,x2 As Integer,y2 As Integer)
+
+   Line x1,y1,x2,y1
+   Line x2,y1,x2,y2
+   Line x2,y2,x1,y2
+   Line x1,y2,x1,y1
+
+EndFunction
+
+
+
+Function _octagon(x1 As Integer,y1 As Integer,x2 As Integer,y2 As Integer,x3 As Integer,y3 As Integer,x4 As Integer,y4 As Integer,x5 As Integer,y5 As Integer,x6 As Integer,y6 As Integer,x7 As Integer,y7 As Integer,x8 As Integer,y8 As Integer)
+   `Draws an eight sided plain figure
+
+   Line x1,y1,x2,y2
+   Line x2,y2,x3,y3
+   Line x3,y3,x4,y4
+   Line x4,y4,x5,y5
+   Line x5,y5,x6,y6
+   Line x6,y6,x7,y7
+   Line x7,y7,x8,y8
+   Line x8,y8,x1,y1
+
+EndFunction

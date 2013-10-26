@@ -1,0 +1,135 @@
+RemStart All Available Functions in this include:
+_find_free_dll()
+_find_free_memblock()
+_find_free_object()
+_find_free_sound()
+_find_free_music()
+_find_free_animation()
+_find_free_bitmap()
+_find_free_effect()
+_find_free_image()
+_find_free_light()
+_find_free_limb()
+_find_free_matrix()
+_find_free_mesh()
+_find_free_pixelshader()
+_find_free_particles()
+_find_free_sprite()
+_find_free_terrain()
+_find_free_vertexshader()
+_find_free_file()
+RemEnd
+
+Function _find_free_dll()
+   Repeat
+      Inc i
+   Until DLL Exist(i) = 0
+EndFunction i
+
+Function _find_free_memblock()
+   Repeat
+      Inc i
+   Until MemBlock Exist(i) = 0
+EndFunction i
+
+Function _find_free_object()
+   Repeat
+      Inc i
+   Until Object Exist(i) = 0
+EndFunction i
+
+Function _find_free_sound()
+   Repeat
+      Inc i
+   Until Sound Exist(i) = 0
+EndFunction i
+
+Function _find_free_music()
+   Repeat
+      Inc i
+   Until Music Exist(i) = 0
+EndFunction i
+
+Function _find_free_animation()
+   Repeat
+      Inc i
+   Until Animation Exist(i) = 0
+EndFunction i
+
+Function _find_free_bitmap()
+   Repeat
+      Inc i
+   Until Bitmap Exist(i) = 0
+EndFunction i
+
+Function _find_free_effect()
+   Repeat
+      Inc i
+   Until Effect Exist(i) = 0
+EndFunction i
+
+Function _find_free_image()
+   Repeat
+      Inc i
+   Until Image Exist(i) = 0
+EndFunction i
+
+Function _find_free_light()
+   Repeat
+      Inc i
+   Until Light Exist(i) = 0
+EndFunction i
+
+Function _find_free_limb()
+   Repeat
+      Inc i
+   Until Limb Exist(i,i) = 0
+EndFunction i
+
+Function _find_free_matrix()
+   Repeat
+      Inc i
+   Until Matrix Exist(i) = 0
+EndFunction i
+
+Function _find_free_mesh()
+   Repeat
+      Inc i
+   Until Mesh Exist(i) = 0
+EndFunction i
+
+Function _find_free_pixelshader()
+   Repeat
+      Inc i
+   Until Pixel Shader Exist(i) = 0
+EndFunction i
+
+Function _find_free_particles()
+   Repeat
+      Inc i
+   Until Particles Exist(i) = 0
+EndFunction i
+
+Function _find_free_sprite()
+   Repeat
+      Inc i
+   Until Sprite Exist(i) = 0
+EndFunction i
+
+Function _find_free_terrain()
+   Repeat
+      Inc i
+   Until Terrain Exist(i) = 0
+EndFunction i
+
+Function _find_free_vertexshader()
+   Repeat
+      Inc i
+   Until Vertex Shader Exist(i) = 0
+EndFunction i
+
+Function _find_free_file()
+   Repeat
+      Inc i
+   Until File Open(i) = 0
+EndFunction i

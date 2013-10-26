@@ -1,0 +1,18 @@
+Programming: Jess ( JessTicular ) Telford.
+
+Art:
+  Character: Hermann Hillmann's Character Pack #1 ( http://www.vbexplorer.com/VBExplorer/charpack1.asp )
+  Water Scenery: Hermann Hillmann's Character Pack #1
+  All Other Scenery: Jess Telford
+  Items: Jess Telford
+  Interface: Jess Telford
+
+Third Party DLL's:
+  Anti-Aliased Text: Cloggy's D3Dfunc.dll
+  Window Skinning: SilentSS's WinSkin.dll
+
+Original Game:
+  Puzzled Sheep Flash Game ( http://www.miniclip.com )
+
+All mad props go out to The Game Creators and everyone in the Forum
+Community there!

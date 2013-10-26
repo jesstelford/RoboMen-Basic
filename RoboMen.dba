@@ -1,0 +1,1836 @@
+Set Window On
+Set Window Layout 0,0,0
+Set Display Mode 640,480,32
+
+Sync On : Sync Rate 0
+
+Global mapoffx As Integer = 95
+Global mapoffy As Integer = 15
+Global maptilesize As Integer = 30
+Global avatardelay As Integer = 50
+Global mouseselect As Integer = 0
+Global totalavs As Integer = 0
+Global av1num As Integer = 0
+Global av2num As Integer = 0
+Global currentlevel As Integer = 0
+Global endanim As Boolean = 0
+Global go As Boolean = 0
+Global musicon As Boolean = 1
+Global score As Integer = 0
+Global totallevels As Integer = 24
+Global ticktock As Integer = Timer()
+Global trys As Integer = 0
+
+Global fps As Integer
+
+Global tmp As Integer
+
+`Center the window in the middle of the desktop so that it's all sexy and noticable!
+#Constant user32 = 1
+Load DLL "user32.dll",user32
+Hwnd = Call DLL(user32,"GetDesktopWindow")
+Make Memblock 1,20
+Call Dll user32,"GetWindowRect",Hwnd,Get Memblock Ptr(1)
+   `memblock word(1,0) = left
+   `memblock word(1,4) = top
+   `memblock word(1,8) = right
+   `memblock word(1,12) = bottom
+Hwnd = Call DLL(user32,"GetActiveWindow")
+Call DLL user32,"SetWindowPos",Hwnd,-1,MemBlock Word(1,8)/2 - 320,MemBlock Word(1,12)/2 - 240,640,480,1
+
+Delete MemBlock 1
+Delete DLL user32
+`Clean up after itself.
+
+Set Window Skin ".\media\RoboMenSplashSkin.bmp",0,0,0
+
+Load Image ".\media\RoboMenSplash.png",1,1
+Sprite 1,0,0,1
+
+ticktock = Timer()
+
+Do
+   Paste Sprite 1,0,0
+   If ( Timer() - ticktock >= 15000 ) Or ( ScanCode() <> 0 ) Or ( MouseClick() <> 0 ) Then Exit
+Sync
+Loop
+
+Delete Sprite 1
+Delete Image 1
+
+
+Set Window Skin ".\media\skin.bmp",0,0,0
+
+
+
+Type locations
+   x1 As Integer
+   y1 As Integer
+   x2 As Integer
+   y2 As Integer
+   active As Boolean
+EndType
+
+Type menustuff
+   text As String
+   text1 As String
+   text2 As String
+   active As Boolean
+   pressed As Boolean
+EndType
+
+Type avatars
+   x As Float
+   y As Float
+   xtile As Integer
+   ytile As Integer
+   nextxtile As Integer
+   nextytile As Integer
+   nextx As Integer
+   nexty As Integer
+   speed As Float
+   xdir As Integer
+   ydir As Integer
+   kind As Integer
+   anim As Integer
+   animframe As Integer
+   timeout As Integer
+   dying As Boolean
+   dead As Boolean
+EndType
+
+
+Dim av(-1) As avatars
+
+`0 = game area
+`1 = Interface section
+`2 = Items section
+`3 = Menu section
+`4 = GO!
+`5 = RESET
+
+`6 = In-Game MenuItem1
+`7 = In-Game MenuItem2
+`8 = In-Game MenuItem3
+
+Dim loc(8) As locations
+
+loc(0).x1 = 95 : loc(0).y1 = 15 : loc(0).x2 = 545 : loc(0).y2 = 315
+loc(1).x1 = 95 : loc(1).y1 = 345 : loc(1).x2 = 525 : loc(1).y2 = loc(1).y1 + 90
+
+loc(2).x1 = 200 : loc(2).y1 = loc(1).y1 : loc(2).x2 = 440 : loc(2).y2 = loc(1).y2
+loc(3).x1 = loc(2).x2 : loc(3).y1 = loc(1).y1 : loc(3).x2 = loc(1).x2 : loc(3).y2 = loc(1).y2
+
+loc(4).x1 = 528 : loc(4).y1 = 280 : loc(4).x2 = 614 : loc(4).y2 = 338
+loc(5).x1 = 24 : loc(5).y1 = 279 : loc(5).x2 = 110 : loc(5).y2 =  338
+
+loc(6).x1 = loc(3).x1 : loc(6).y1 = loc(3).y1 : loc(6).x2 = loc(3).x2 : loc(6).y2 = loc(6).y1 + 30
+loc(7).x1 = loc(3).x1 : loc(7).y1 = loc(6).y2 : loc(7).x2 = loc(3).x2 : loc(7).y2 = loc(7).y1 + 30
+loc(8).x1 = loc(3).x1 : loc(8).y1 = loc(7).y2 : loc(8).x2 = loc(3).x2 : loc(8).y2 = loc(8).y1 + 30
+
+Dim menus(1,3) As menustuff
+
+menus(0,0).text1 = "Menu"
+menus(0,0).text2 = menus(0,0).text1
+menus(0,0).text = menus(0,0).text1
+
+menus(0,1).text1 = "Instructions"
+menus(0,1).text2 = menus(0,1).text1
+menus(0,1).text = menus(0,1).text1
+
+menus(0,2).text1 = "Audio Off"
+menus(0,2).text2 = "Audio On"
+menus(0,2).text = menus(0,2).text1
+
+menus(1,0).text1 = "Start Game"
+menus(1,0).text2 = menus(1,0).text1
+menus(1,0).text = menus(1,0).text1
+
+menus(1,1).text1 = "Instructions"
+menus(1,1).text2 = menus(1,1).text1
+menus(1,1).text = menus(1,1).text1
+
+menus(1,2).text1 = "Enter Code"
+menus(1,2).text2 = menus(1,2).text1
+menus(1,2).text = menus(1,2).text1
+
+menus(1,3).text1 = ""
+menus(1,3).text2 = "Resume"
+menus(1,3).text = menus(1,3).text1
+
+Dim use(7) As Integer
+Dim map(15,10) As Integer
+Dim tex(15,10) As Integer
+
+
+`############ GAME IMAGES LOADING TIME #############
+
+   Create Animated Sprite 1,".\media\1.png",19,1,1
+   Sprite 1,-100,-100,1
+   Set Sprite Priority 1,41
+   Size Sprite 1,30,30
+
+   For i = 2 To 8
+      Create Animated Sprite i,".\media\" + Str$(i) + ".png",2,1,i
+      Sprite i,-100,-100,i
+      Set Sprite Priority i,i + 40
+      Size Sprite i,30,30
+   Next i
+
+   Create Animated Sprite 10,".\media\10.png",8,8,10
+   Sprite 10,-100,-100,10
+   Set Sprite Priority 10,50
+   Offset Sprite 10,20,30
+   Size Sprite 10,40,40
+
+   Create Animated Sprite 11,".\media\11.png",8,8,11
+   Sprite 11,-100,-100,11
+   Set Sprite Priority 11,50
+   Offset Sprite 11,20,30
+   Size Sprite 11,40,40
+
+   Create Animated Sprite 20,".\media\20.png",5,1,20
+   Sprite 20,-100,-100,20
+   Set Sprite Priority 20,1
+   Size Sprite 20,30,30
+
+   For i = 21 To 40
+      Load Image ".\media\" + Str$(i) + ".png",i,1
+      Sprite i,-100,-100,i
+      Set Sprite Priority i,i - 19
+   Next i
+`############ END GAME IMAGES LOADING TIME #############
+
+
+`########## SET UP FOR MAIN INTERFACE #############
+   `Use this base-image for dragging of the window.
+   Load Image ".\media\skin-drag.png",100,1
+   Make MemBlock From Image 100,100
+
+   `The main window buttons and images
+   Load Image ".\media\main-interface.png",101,1
+   Load Image ".\media\close-normal.png",102,1
+   Load Image ".\media\minimise-normal.png",103,1
+   Load Image ".\media\close-pressed.png",104,1
+   Load Image ".\media\minimise-pressed.png",105,1
+   Create Animated Sprite 106,".\media\go.png",2,1,106
+   Create Animated Sprite 107,".\media\reset.png",2,1,107
+   Load Image ".\media\interback.png",108,1
+   Create Animated Sprite 109,".\media\yellow-head.png",2,1,109
+   Create Animated Sprite 110,".\media\red-head.png",2,1,110
+   Load Image ".\media\robomen.png",111,1
+
+   Size Sprite 106,loc(4).x2 - loc(4).x1,loc(4).y2 - loc(4).y1
+   Size Sprite 107,loc(5).x2 - loc(5).x1,loc(5).y2 - loc(5).y1
+
+   Size Sprite 109,40,52
+   Size Sprite 110,40,52
+
+   Sprite 101,-500,-500,103
+   Sprite 102,-500,-500,102
+   Sprite 103,-1000,-1000,101
+   Sprite 106,-1000,-1000,106
+   Sprite 107,-1000,-1000,107
+   Sprite 108,-1000,-1000,108
+   Sprite 109,-1000,-1000,109
+   Sprite 110,-1000,-1000,110
+   Sprite 111,-1000,-1000,111
+
+   Set Sprite Priority 103,101
+   Set Sprite Priority 101,102
+   Set Sprite Priority 102,102
+   Set Sprite Priority 106,102
+   Set Sprite Priority 107,102
+   Set Sprite Priority 108,1
+   Set Sprite Priority 109,2
+   Set Sprite Priority 110,2
+   Set Sprite Priority 111,1
+
+   BackDrop On
+   Color BackDrop RGB(255,255,0)
+
+   `Initialise the D3Dfunc dll
+   InitD3D
+   Set Font 1,"Arial",12,1,0
+   Set Font 2,"Arial Black",14,0,0
+   Set Font 3,"Verdana",24,1,0
+   Set Font 10,"Courier New",10,1,0
+`########## END SET UP FOR MAIN INTERFACE #############
+
+
+`########  -- Initialize variables for Input gadgets --  ########
+   Global totinp As Integer :`Total input feilds
+   Global ld As Boolean    :`LeftKey Down?
+   Global rd As Boolean    :`RightKey Down?
+   Global td As Boolean    :`TabKey Down?
+
+   Type uin
+      str As String        `The input string
+      strlen As DWord      `The length of the input string
+      x As Integer         `The x screen coord of the string
+      y As Integer         `The y screen coord
+      pos As DWord         `The cursor position in the string
+      posx As Integer      `The x screen coord of the cursor
+      posy As Integer      `The y screen coord of the cursor
+      flashtime As DWord   `The time between flash's
+      flash As DWord       `The time of the last flash
+      carret As String     `The string used to be the cursor
+      onoff As Integer     `If the cursor is to be shown or not
+      act As Boolean       `Is this input gadget active?
+      num As Integer       `What type of input is this? ( see _init_input() for types )
+      max As Integer       `Maximum amount of characters that can be entered
+      tab As Integer       `Tab Order of input boxes ( 1 is the first Tab and so on )
+   EndType
+
+   totinp = 0              :`There is no input gadgets yet
+
+   Global Dim in(totinp) As uin
+
+   in(0).x = 100
+   in(0).y = 100
+   in(0).flashtime = 400
+   in(0).carret = "|"
+   in(0).act = 1
+`########  -- End Input initialization --  ########
+
+
+
+Load Music ".\media\music fun.mp3",1
+Set Music Volume 1,75
+Loop Music 1
+
+Load Sound ".\media\Droid 3.wav",1
+Load Sound ".\media\Hit water.wav",2
+Load Sound ".\media\Button 2.wav",3
+Load Sound ".\media\Hit wall.wav",4
+Load Sound ".\media\Carpet fast.wav",5
+Load Sound ".\media\Bug 1.wav",6
+Load Sound ".\media\Rippler.wav",7
+
+Set SOund Volume 3,100
+Set SOund Volume 4,100
+Set Sound Volume 5,50
+
+
+_input_set_active(_input_init(245,230,2,30))
+
+_load_level(1)
+
+_main_menu()
+
+start:
+
+
+Do
+
+   fps = Screen FPS()
+
+   If go = 1 Then _update_avatars(60.0 / fps)
+
+   _display()
+
+   _game_interface()
+
+
+   `Left-Mouse-Click stuffskies
+   If MouseClick() = 1 : If lmb = 0 : lmb = 1
+   `** On KeyDown **
+
+      `Some nifty window dragging for the user.
+      `Only drag the window if we're not clicking any of the buttons!
+      If _can_drag(MouseX(),MouseY())
+         Drag Window
+      EndIf
+
+      If _inzone(loc(4).x1,loc(4).y1,loc(4).x2,loc(4).y2,MouseX(),MouseY())
+         `This discludes double clicks of the "GO" button in the attemp count
+         If go = 0
+            trys = trys + 1
+            go = 1
+            If musicon
+               Play Sound 7
+               Loop Sound 5
+            EndIf
+         EndIf
+      EndIf
+
+      If _inzone(loc(5).x1,loc(5).y1,loc(5).x2,loc(5).y2,MouseX(),MouseY())
+         If go = 1
+            go = 0
+            If musicon Then Play Sound 6 : Stop Sound 5
+            _load_level(currentlevel)
+         EndIf
+      EndIf
+
+      If NOT go
+         `Not allowed to use non-usable items!
+         If _inzone(215,385,425,415,MouseX(),MouseY())
+            mouseselect = (MouseX() - 215)/30 + 2
+            If use(mouseselect - 1) = 0 Then mouseselect = 0
+         Else
+            mouseselect = 0
+         EndIf
+
+         `Recycling the use items
+         If _inzone(loc(0).x1,loc(0).y1,loc(0).x2,loc(0).y2,MouseX(),MouseY())
+            tmpx = Int((MouseX() - mapoffx)/30) + 1
+            tmpy = Int((MouseY() - mapoffy)/30) + 1
+            If ( map(tmpx,tmpy) > 1 ) AND ( map(tmpx,tmpy) <= 8 )
+               use(map(tmpx,tmpy) - 1) = use(map(tmpx,tmpy) - 1) + 1
+               map(tmpx,tmpy) = 20
+               If musicon Then Play Sound 3
+            EndIf
+         EndIf
+      EndIf
+
+   `** End On Down **
+   Else
+   `** While KeyHeld **
+
+      `Some image swapping for the Buttons on the Interface
+      If _dist(MouseX(),MouseY(),590,53) <= 10
+         Set Sprite Image 102,104
+      Else
+         Set Sprite Image 102,102
+         If _dist(MouseX(),MouseY(),566,37) <= 10
+            Set Sprite Image 101,105
+         Else
+            Set Sprite Image 101,103
+         EndIf
+      EndIf
+
+      If _inzone(loc(4).x1,loc(4).y1,loc(4).x2,loc(4).y2,MouseX(),MouseY())
+         Set Sprite Frame 106,2
+      Else
+         Set Sprite Frame 106,1
+      EndIf
+
+      If _inzone(loc(5).x1,loc(5).y1,loc(5).x2,loc(5).y2,MouseX(),MouseY())
+         Set Sprite Frame 107,2
+      Else
+         Set Sprite Frame 107,1
+      EndIf
+
+      If mouseselect <> 0 Then Paste Sprite mouseselect,MouseX() - Sprite Width(mouseselect)/2,MouseY() - Sprite Height(mouseselect)/2
+
+
+      If _inzone(loc(3).x1,loc(3).y1,loc(3).x2,loc(3).y2,MouseX(),MouseY())
+         For i = 6 To 8
+            If _inzone(loc(i).x1,loc(i).y1,loc(i).x2,loc(i).y2,MouseX(),MouseY())
+               menus(0,i - 6).pressed = 1
+            Else
+               menus(0,i - 6).pressed = 0
+            EndIf
+         Next i
+      Else
+         For i = 0 To 2
+            menus(0,i).pressed = 0
+         Next i
+      EndIf
+
+
+   `** End Held **
+   EndIf : Else : If lmb = 1 : lmb = 0
+   `** On KeyUp **
+
+      If _dist(MouseX(),MouseY(),590,53) <= 10
+         Set Sprite Image 102,102
+         End
+      EndIf
+
+      If _dist(MouseX(),MouseY(),566,37) <= 10
+         Set Sprite Image 101,103
+         Minimize Window
+      EndIf
+
+      Set Sprite Frame 106,1
+      Set Sprite Frame 107,1
+
+      `What to do when an item is dropped
+      If mouseselect <> 0
+         If _inzone(loc(0).x1,loc(0).y1,loc(0).x2,loc(0).y2,MouseX(),MouseY())
+            tmpx = Int((MouseX() - mapoffx)/30) + 1
+            tmpy = Int((MouseY() - mapoffy)/30) + 1
+            If ( map(tmpx,tmpy) <= 20 ) AND ( map(tmpx,tmpy) <> 1 )
+               map(tmpx,tmpy) = mouseselect
+               use(mouseselect - 1) = use(mouseselect - 1) - 1
+               If musicon Then Play Sound 4
+            EndIf
+         EndIf
+         mouseselect = 0
+      EndIf
+
+      If menus(0,0).pressed = 1
+         `Menu
+         menus(0,0).pressed = 0
+         menus(1,3).text = menus(1,3).text2
+         If _main_menu() = -1
+            _load_level(1)
+            GoTo start
+         EndIf
+      EndIf
+
+      If menus(0,1).pressed = 1
+         `Instructions
+         menus(0,1).pressed = 0
+         menus(1,3).text = menus(1,3).text2
+         If _instructions(1) = -1
+            _load_level(1)
+            GoTo start
+         EndIf
+      EndIf
+
+      If menus(0,2).pressed = 1
+         `Audio On/Off
+         If menus(0,2).text = menus(0,2).text1 Then menus(0,2).text = menus(0,2).text2 Else menus(0,2).text = menus(0,2).text1
+         menus(0,2).pressed = 0
+         If musicon
+            musicon = 0
+            Stop Music 1
+            Stop Sound 5
+         Else
+            musicon = 1
+            Loop Music 1
+         EndIf
+      EndIf
+
+   `** End On Up **
+   EndIf : EndIf
+
+   If endanim = 1
+      Play Sprite 1,1,19,20
+      If Sprite Frame(1) = 19 Then endanim = 0
+   EndIf
+
+   If totalavs = 0 And endanim = 0
+      go = 0
+      Stop Sound 5
+      _score(trys, Int((Timer() - ticktock)/1000))
+      If _load_level(currentlevel + 1) = -1
+         `Final Win Condition!
+         _game_over("You Completed All The Available Levels!")
+         If _main_menu() = -1
+            _load_level(1)
+            GoTo start
+         EndIf
+      EndIf
+   EndIf
+
+   If _inzone(loc(3).x1,loc(3).y1,loc(3).x2,loc(3).y2,MouseX(),MouseY())
+      For i = 6 To 8
+         If menus(0,i - 6).pressed = 0
+            If _inzone(loc(i).x1,loc(i).y1,loc(i).x2,loc(i).y2,MouseX(),MouseY())
+               menus(0,i - 6).active = 1
+            Else
+               menus(0,i - 6).active = 0
+            EndIf
+         EndIf
+      Next i
+   Else
+      For i = 0 To 2
+         menus(0,i).active = 0
+      Next i
+   EndIf
+
+
+   `In-game Menu items...
+   StartText
+
+   Draw Color 0,150,50,100
+   For i = 0 To 2
+      Text AA 1,482,350 + (i*30),1,menus(0,i).text
+   Next i
+   Text AA 1,221,351,0,"Lives: " + Str$(use(0))  :`Lives meter
+   Text AA 1,351,351,0,"Level: " + Str$(currentlevel)  :`Level
+
+   Draw Color 0,100,0,25
+   For i = 0 To 2
+      If menus(0,i).pressed = 1
+         Text AA 1,481,349 + (i*30),1,menus(0,i).text
+      Else
+         If menus(0,i).active
+            Text AA 1,484,352 + (i*30),1,menus(0,i).text
+         Else
+            Text AA 1,483,351 + (i*30),1,menus(0,i).text
+         EndIf
+      EndIf
+   Next i
+   Text AA 1,222,352,0,"Lives: " + Str$(use(0))  :`Lives meter
+   Text AA 1,352,352,0,"Level: " + Str$(currentlevel)  :`Level
+
+   Draw Color 100,200,100,35
+   For i = 0 To 2
+      If menus(0,i).pressed = 1
+         Text AA 1,483,351 + (i*30),1,menus(0,i).text
+      Else
+         If menus(0,i).active
+            Text AA 1,480,348 + (i*30),1,menus(0,i).text
+         Else
+            Text AA 1,481,349 + (i*30),1,menus(0,i).text
+         EndIf
+      EndIf
+   Next i
+   Text AA 1,220,350,0,"Lives: " + Str$(use(0))  :`Lives meter
+   Text AA 1,350,350,0,"Level: " + Str$(currentlevel)  :`Level
+
+   Text AA 1,500,440,1,"FPS = " + Str$(fps)
+
+   For i = 1 To 7
+      If use(i) = 0
+         Draw Color 0,150,50,25
+         Text AA 2,200 + (i * 30),410,1,Str$(use(i))
+         Draw Color 0,150,50,100
+      Else
+         Text AA 2,200 + (i * 30),410,1,Str$(use(i))
+      EndIf
+   Next i
+
+   If av1num = 0
+      Draw Color 0,150,50,25
+      Text AA 2,136,410,1,"0"
+      Draw Color 0,150,50,100
+   Else
+      Text AA 2,136,410,1,Str$(av1num)
+   EndIf
+
+   If av2num = 0
+      Draw Color 0,150,50,25
+      Text AA 2,182,410,1,"0"
+      Draw Color 0,150,50,100
+   Else
+      Text AA 2,182,410,1,Str$(av2num)
+   EndIf
+
+   EndText
+
+Sync
+Loop
+
+
+
+Function _main_menu()
+
+
+   Do
+
+      fps = Screen FPS()
+
+      _menu_interface()
+
+      `Left-Mouse-Click stuffskies
+      If MouseClick() = 1 : If lmb = 0 : lmb = 1
+      `** On KeyDown **
+
+         `Some nifty window dragging for the user.
+         `Only drag the window if we're not clicking any of the buttons!
+         If _can_drag(MouseX(),MouseY())
+            Drag Window
+         EndIf
+
+      `** End On Down **
+      Else
+      `** While KeyHeld **
+
+         `Some image swapping for the Buttons on the Interface
+         If _dist(MouseX(),MouseY(),590,53) <= 10
+            Set Sprite Image 102,104
+         Else
+            Set Sprite Image 102,102
+            If _dist(MouseX(),MouseY(),566,37) <= 10
+               Set Sprite Image 101,105
+            Else
+               Set Sprite Image 101,103
+            EndIf
+         EndIf
+
+         If _inzone(loc(0).x1,loc(0).y1,loc(0).x2,loc(0).y2,MouseX(),MouseY())
+            For i = 0 To 3
+               If _inzone(loc(0).x1,(loc(0).y2 - loc(0).y1 - 50)/4 * i + 45,loc(0).x2,(loc(0).y2 - loc(0).y1 - 50)/4 * i + 100,MouseX(),MouseY())
+                  menus(1,i).pressed = 1
+               Else
+                  menus(1,i).pressed = 0
+               EndIf
+            Next i
+         Else
+            For i = 0 To 3
+               menus(1,i).pressed = 0
+            Next i
+         EndIf
+
+
+      `** End Held **
+      EndIf : Else : If lmb = 1 : lmb = 0
+      `** On KeyUp **
+
+         If _dist(MouseX(),MouseY(),590,53) <= 10
+            Set Sprite Image 102,102
+            End
+         EndIf
+
+         If _dist(MouseX(),MouseY(),566,37) <= 10
+            Set Sprite Image 101,103
+            Minimize Window
+         EndIf
+
+         If menus(1,0).pressed = 1
+            `Play Game
+            menus(1,0).pressed = 0
+            ExitFunction -1
+         EndIf
+
+         If menus(1,1).pressed = 1
+            `Instructions
+            menus(1,1).pressed = 0
+            _instructions(0)
+         EndIf
+
+         If menus(1,2).pressed = 1
+            `Enter Code
+            menus(1,2).pressed = 0
+            If _enter_code() = 1 Then score = 0 : ExitFunction 1
+         EndIf
+
+         If menus(1,3).pressed = 1 And menus(1,3).text <> ""
+            `Resume
+            menus(1,3).pressed = 0
+            ExitFunction 1
+         EndIf
+
+      `** End On Up **
+      EndIf : EndIf
+
+
+      If _inzone(loc(0).x1,loc(0).y1,loc(0).x2,loc(0).y2,MouseX(),MouseY())
+         For i = 0 To 3
+            If menus(1,i).pressed = 0
+               If _inzone(loc(0).x1,(loc(0).y2 - loc(0).y1 - 50)/4 * i + 45,loc(0).x2,(loc(0).y2 - loc(0).y1 - 50)/4 * i + 100,MouseX(),MouseY())
+                  menus(1,i).active = 1
+               Else
+                  menus(1,i).active = 0
+               EndIf
+            EndIf
+         Next i
+      Else
+         For i = 0 To 2
+            menus(1,i).active = 0
+         Next i
+      EndIf
+
+
+      StartText
+
+      Draw Color 0,150,50,100
+      For i = 0 To 3
+         Text AA 3,Screen Width()/2,(loc(0).y2 - loc(0).y1 - 50)/4 * i + 50,1,menus(1,i).text
+      Next i
+
+      Draw Color 0,100,0,25
+      For i = 0 To 3
+         If menus(1,i).pressed = 1
+            Text AA 3,Screen Width()/2 - 1,(loc(0).y2 - loc(0).y1 - 50)/4 * i + 49,1,menus(1,i).text
+         Else
+            If menus(1,i).active
+               Text AA 3,Screen Width()/2 + 2,(loc(0).y2 - loc(0).y1 - 50)/4 * i + 52,1,menus(1,i).text
+            Else
+               Text AA 3,Screen Width()/2 + 1,(loc(0).y2 - loc(0).y1 - 50)/4 * i + 51,1,menus(1,i).text
+            EndIf
+         EndIf
+      Next i
+
+      Draw Color 100,200,100,35
+      For i = 0 To 3
+         If menus(1,i).pressed = 1
+            Text AA 3,Screen Width()/2 + 1,(loc(0).y2 - loc(0).y1 - 50)/4 * i + 51,1,menus(1,i).text
+         Else
+            If menus(1,i).active
+               Text AA 3,Screen Width()/2 - 2,(loc(0).y2 - loc(0).y1 - 50)/4 * i + 48,1,menus(1,i).text
+            Else
+               Text AA 3,Screen Width()/2 - 1,(loc(0).y2 - loc(0).y1 - 50)/4 * i + 49,1,menus(1,i).text
+            EndIf
+         EndIf
+      Next i
+
+      EndText
+
+
+      Sync
+   Loop
+
+EndFunction -1
+
+
+
+
+Function _instructions(ingame As Boolean)
+
+
+   cd ".\media\instructions\"
+   Perform CheckList For Files
+   cd "..\..\"
+
+   Dim str(-1) As String
+
+   Local i As Integer
+   Local size As Integer
+   Local nextpage As Boolean
+   Local pressed As Boolean
+   Local active As Boolean
+   Local button As String
+
+   For m = 1 To CheckList Quantity()
+      If CheckList Value A(m) = 0
+         Array Insert At Bottom str(0)
+         str(i) = ".\media\instructions\" + CheckList String$(m)
+         i = i + 1
+      EndIf
+   Next m
+
+   size = i - 1
+
+   button = "Next"
+
+   For i = 0 To size
+
+      If i = size Then button = "Menu"
+      nextpage = 0
+
+      Load Image str(i),200,1
+      Sprite 200,130,45,200
+
+      Repeat
+
+         Paste Sprite 200,130,45
+
+         fps = Screen FPS()
+
+         _menu_interface()
+
+         `Left-Mouse-Click stuffskies
+         If MouseClick() = 1 : If lmb = 0 : lmb = 1
+         `** On KeyDown **
+
+            `Some nifty window dragging for the user.
+            `Only drag the window if we're not clicking any of the buttons!
+            If _can_drag(MouseX(),MouseY())
+               Drag Window
+            EndIf
+
+         `** End On Down **
+         Else
+         `** While KeyHeld **
+
+            `Some image swapping for the Buttons on the Interface
+            If _dist(MouseX(),MouseY(),590,53) <= 10
+               Set Sprite Image 102,104
+            Else
+               Set Sprite Image 102,102
+               If _dist(MouseX(),MouseY(),566,37) <= 10
+                  Set Sprite Image 101,105
+               Else
+                  Set Sprite Image 101,103
+               EndIf
+            EndIf
+
+            If _inzone(loc(0).x2 - 100,loc(0).y2 - 50,loc(0).x2,loc(0).y2,MouseX(),MouseY())
+               pressed = 1
+            Else
+               pressed = 0
+            EndIf
+
+
+         `** End Held **
+         EndIf : Else : If lmb = 1 : lmb = 0
+         `** On KeyUp **
+
+            If _dist(MouseX(),MouseY(),590,53) <= 10
+               Set Sprite Image 102,102
+               End
+            EndIf
+
+            If _dist(MouseX(),MouseY(),566,37) <= 10
+               Set Sprite Image 101,103
+               Minimize Window
+            EndIf
+
+            If pressed = 1
+               nextpage = 1
+               pressed = 0
+            EndIf
+
+         `** End On Up **
+         EndIf : EndIf
+
+
+         If _inzone(loc(0).x2 - 100,loc(0).y2 - 50,loc(0).x2,loc(0).y2,MouseX(),MouseY())
+            active = 1
+         Else
+            active = 0
+         EndIf
+
+
+         StartText
+
+         Draw Color 0,150,50,100
+         Text AA 1,loc(0).x2 - 50,loc(0).y2 - 45,1,button
+
+         Draw Color 0,100,0,25
+         If pressed = 1
+            Text AA 1,loc(0).x2 - 49,loc(0).y2 - 44,1,button
+         Else
+            If active
+               Text AA 1,loc(0).x2 - 52,loc(0).y2 - 47,1,button
+            Else
+               Text AA 1,loc(0).x2 - 51,loc(0).y2 - 46,1,button
+            EndIf
+         EndIf
+
+         Draw Color 100,200,100,35
+         If pressed = 1
+            Text AA 1,loc(0).x2 - 51,loc(0).y2 - 46,1,button
+         Else
+            If active
+               Text AA 1,loc(0).x2 - 48,loc(0).y2 - 43,1,button
+            Else
+               Text AA 1,loc(0).x2 - 49,loc(0).y2 - 44,1,button
+            EndIf
+         EndIf
+
+         EndText
+
+         Sync
+      Until nextpage = 1
+
+      Delete Sprite 200
+      Delete Image 200
+
+   Next i
+
+   UnDim str(0)
+
+   If ingame Then ExitFunction _main_menu()
+
+EndFunction 1
+
+
+
+
+Function _score(attempts As Integer, time As Integer)
+   `time in seconds
+
+   Local continue As Boolean
+   Local pressed As Boolean
+   Local active As Boolean
+   Local button As String
+   Local code As String
+
+   Restore codes
+   For i = 1 To currentlevel
+      Read code
+   Next i
+
+   score = score + Int(1000 / attempts)
+   score = score + Int(10000 / time)
+
+   button = "Next Level"
+
+   Repeat
+
+      fps = Screen FPS()
+
+      _menu_interface()
+
+      `Left-Mouse-Click stuffskies
+      If MouseClick() = 1 : If lmb = 0 : lmb = 1
+      `** On KeyDown **
+
+         `Some nifty window dragging for the user.
+         `Only drag the window if we're not clicking any of the buttons!
+         If _can_drag(MouseX(),MouseY())
+            Drag Window
+         EndIf
+
+      `** End On Down **
+      Else
+      `** While KeyHeld **
+
+         `Some image swapping for the Buttons on the Interface
+         If _dist(MouseX(),MouseY(),590,53) <= 10
+            Set Sprite Image 102,104
+         Else
+            Set Sprite Image 102,102
+            If _dist(MouseX(),MouseY(),566,37) <= 10
+               Set Sprite Image 101,105
+            Else
+               Set Sprite Image 101,103
+            EndIf
+         EndIf
+
+         If _inzone(loc(0).x2 - 100,loc(0).y2 - 50,loc(0).x2,loc(0).y2,MouseX(),MouseY())
+            pressed = 1
+         Else
+            pressed = 0
+         EndIf
+
+
+      `** End Held **
+      EndIf : Else : If lmb = 1 : lmb = 0
+      `** On KeyUp **
+
+         If _dist(MouseX(),MouseY(),590,53) <= 10
+            Set Sprite Image 102,102
+            End
+         EndIf
+
+         If _dist(MouseX(),MouseY(),566,37) <= 10
+            Set Sprite Image 101,103
+            Minimize Window
+         EndIf
+
+         If pressed = 1
+            continue = 1
+            pressed = 0
+         EndIf
+
+      `** End On Up **
+      EndIf : EndIf
+
+
+      If _inzone(loc(0).x2 - 100,loc(0).y2 - 50,loc(0).x2,loc(0).y2,MouseX(),MouseY())
+         active = 1
+      Else
+         active = 0
+      EndIf
+
+
+      StartText
+
+      Draw Color 0,150,50,100
+      Text AA 1,loc(0).x2 - 50,loc(0).y2 - 45,1,button
+
+      Draw Color 0,100,0,25
+      If pressed = 1
+         Text AA 1,loc(0).x2 - 49,loc(0).y2 - 44,1,button
+      Else
+         If active
+            Text AA 1,loc(0).x2 - 52,loc(0).y2 - 47,1,button
+         Else
+            Text AA 1,loc(0).x2 - 51,loc(0).y2 - 46,1,button
+         EndIf
+      EndIf
+
+      Draw Color 100,200,100,35
+      If pressed = 1
+         Text AA 1,loc(0).x2 - 51,loc(0).y2 - 46,1,button
+      Else
+         If active
+            Text AA 1,loc(0).x2 - 48,loc(0).y2 - 43,1,button
+         Else
+            Text AA 1,loc(0).x2 - 49,loc(0).y2 - 44,1,button
+         EndIf
+      EndIf
+
+      Draw Color 150,10,40,100
+      Text AA 3,Screen Width()/2,40,1,"Level " + Str$(currentlevel) + " Completed!"
+      Text AA 1,Screen Width()/2,80,1,"Level " + Str$(currentlevel) + " Code: " + code
+
+      Draw Color 0,150,50,100
+      Text AA 1,225,135,1,"Time Taken: " + Str$(time) + "s"
+      Text AA 1,425,135,1,"Attempts Made: " + Str$(attempts)
+      Text AA 1,225,165,1,"Time Bonus: " + Str$(Int(10000 / time))
+      Text AA 1,425,165,1,"Attempt Bonus: " + Str$(Int(1000 / attempts))
+      Text AA 1,Screen Width()/2,200,1,"Level Score: " + Str$(Int(10000 / time)) + " + " + Str$(Int(1000 / attempts)) + " = " + Str$(Int(10000 / time) + Int(1000 / attempts))
+
+      Draw Color 255,150,20,100
+      Text AA 3,Screen Width()/2,230,1,"Score: " + Str$(score)
+
+      Draw Color 100,0,0,25
+      Text AA 3,Screen Width()/2 + 1,41,1,"Level " + Str$(currentlevel) + " Completed!"
+      Text AA 1,Screen Width()/2 + 1,81,1,"Level " + Str$(currentlevel) + " Code: " + code
+
+      Draw Color 0,100,0,25
+      Text AA 1,226,136,1,"Time Taken: " + Str$(time) + "s"
+      Text AA 1,426,136,1,"Attempts Made: " + Str$(attempts)
+      Text AA 1,226,166,1,"Time Bonus: " + Str$(Int(10000 / time))
+      Text AA 1,426,166,1,"Attempt Bonus: " + Str$(Int(1000 / attempts))
+      Text AA 1,Screen Width()/2 + 1,201,1,"Level Score: " + Str$(Int(10000 / time)) + " + " + Str$(Int(1000 / attempts)) + " = " + Str$(Int(10000 / time) + Int(1000 / attempts))
+
+      Draw Color 180,100,0,25
+      Text AA 3,Screen Width()/2 + 1,231,1,"Score: " + Str$(score)
+
+      Draw Color 200,80,100,35
+      Text AA 3,Screen Width()/2 - 1,39,1,"Level " + Str$(currentlevel) + " Completed!"
+      Text AA 1,Screen Width()/2 - 1,79,1,"Level " + Str$(currentlevel) + " Code: " + code
+
+      Draw Color 100,200,100,35
+      Text AA 1,224,134,1,"Time Taken: " + Str$(time) + "s"
+      Text AA 1,424,134,1,"Attempts Made: " + Str$(attempts)
+      Text AA 1,224,164,1,"Time Bonus: " + Str$(Int(10000 / time))
+      Text AA 1,424,164,1,"Attempt Bonus: " + Str$(Int(1000 / attempts))
+      Text AA 1,Screen Width()/2 - 1,199,1,"Level Score: " + Str$(Int(10000 / time)) + " + " + Str$(Int(1000 / attempts)) + " = " + Str$(Int(10000 / time) + Int(1000 / attempts))
+
+      Draw Color 255,210,100,35
+      Text AA 3,Screen Width()/2 - 1,229,1,"Score: " + Str$(score)
+
+      EndText
+
+      Sync
+   Until continue = 1
+
+EndFunction
+
+
+
+
+Function _game_over(str As String)
+
+   Local continue As Boolean
+   Local pressed As Boolean
+   Local active As Boolean
+   Local button As String
+
+   button = "Main Menu"
+
+   Repeat
+
+      fps = Screen FPS()
+
+      _menu_interface()
+
+      `Left-Mouse-Click stuffskies
+      If MouseClick() = 1 : If lmb = 0 : lmb = 1
+      `** On KeyDown **
+
+         `Some nifty window dragging for the user.
+         `Only drag the window if we're not clicking any of the buttons!
+         If _can_drag(MouseX(),MouseY())
+            Drag Window
+         EndIf
+
+      `** End On Down **
+      Else
+      `** While KeyHeld **
+
+         `Some image swapping for the Buttons on the Interface
+         If _dist(MouseX(),MouseY(),590,53) <= 10
+            Set Sprite Image 102,104
+         Else
+            Set Sprite Image 102,102
+            If _dist(MouseX(),MouseY(),566,37) <= 10
+               Set Sprite Image 101,105
+            Else
+               Set Sprite Image 101,103
+            EndIf
+         EndIf
+
+         If _inzone(loc(0).x2 - 100,loc(0).y2 - 50,loc(0).x2,loc(0).y2,MouseX(),MouseY())
+            pressed = 1
+         Else
+            pressed = 0
+         EndIf
+
+
+      `** End Held **
+      EndIf : Else : If lmb = 1 : lmb = 0
+      `** On KeyUp **
+
+         If _dist(MouseX(),MouseY(),590,53) <= 10
+            Set Sprite Image 102,102
+            End
+         EndIf
+
+         If _dist(MouseX(),MouseY(),566,37) <= 10
+            Set Sprite Image 101,103
+            Minimize Window
+         EndIf
+
+         If pressed = 1
+            continue = 1
+            pressed = 0
+         EndIf
+
+      `** End On Up **
+      EndIf : EndIf
+
+
+      If _inzone(loc(0).x2 - 100,loc(0).y2 - 50,loc(0).x2,loc(0).y2,MouseX(),MouseY())
+         active = 1
+      Else
+         active = 0
+      EndIf
+
+
+      StartText
+
+      Draw Color 0,150,50,100
+      Text AA 1,loc(0).x2 - 50,loc(0).y2 - 45,1,button
+
+      Draw Color 0,100,0,25
+      If pressed = 1
+         Text AA 1,loc(0).x2 - 49,loc(0).y2 - 44,1,button
+      Else
+         If active
+            Text AA 1,loc(0).x2 - 52,loc(0).y2 - 47,1,button
+         Else
+            Text AA 1,loc(0).x2 - 51,loc(0).y2 - 46,1,button
+         EndIf
+      EndIf
+
+      Draw Color 100,200,100,35
+      If pressed = 1
+         Text AA 1,loc(0).x2 - 51,loc(0).y2 - 46,1,button
+      Else
+         If active
+            Text AA 1,loc(0).x2 - 48,loc(0).y2 - 43,1,button
+         Else
+            Text AA 1,loc(0).x2 - 49,loc(0).y2 - 44,1,button
+         EndIf
+      EndIf
+
+      Draw Color 150,10,40,100
+      Text AA 3,Screen Width()/2,40,1,"Game Over!"
+      Text AA 1,Screen Width()/2,80,1,str
+
+      Draw Color 255,150,20,100
+      Text AA 3,Screen Width()/2,230,1,"Score: " + Str$(score)
+
+      Draw Color 100,0,0,25
+      Text AA 3,Screen Width()/2 + 1,41,1,"Game Over!"
+      Text AA 1,Screen Width()/2 + 1,81,1,str
+
+      Draw Color 180,100,0,25
+      Text AA 3,Screen Width()/2 + 1,231,1,"Score: " + Str$(score)
+
+      Draw Color 200,80,100,35
+      Text AA 3,Screen Width()/2 - 1,39,1,"Game Over!"
+      Text AA 1,Screen Width()/2 - 1,79,1,str
+
+      Draw Color 255,210,100,35
+      Text AA 3,Screen Width()/2 - 1,229,1,"Score: " + Str$(score)
+
+      EndText
+
+      Sync
+   Until continue = 1
+
+EndFunction
+
+
+
+
+Function _enter_code()
+
+
+   Local continue As Boolean
+   Local pressed As Boolean
+   Local active As Boolean
+   Local pressed2 As Boolean
+   Local active2 As Boolean
+   Local code As String
+   Local correct As Boolean
+   Local leveljump As Integer
+   Local button As String
+
+   button = "Wrong Code"
+
+   Clear Entry Buffer
+
+   Repeat
+
+      fps = Screen FPS()
+
+      Draw Color 0,0,0,100
+      _input()
+
+      _menu_interface()
+
+      Restore codes
+      For i = 1 To totallevels
+         Read code
+         If _input_get(1) = code
+            button = "Correct Code"
+            correct = 1
+            leveljump = i + 1
+            i = totallevels
+         Else
+            button = "Wrong Code"
+            correct = 0
+         EndIf
+      Next i
+
+      `Left-Mouse-Click stuffskies
+      If MouseClick() = 1 : If lmb = 0 : lmb = 1
+      `** On KeyDown **
+
+         `Some nifty window dragging for the user.
+         `Only drag the window if we're not clicking any of the buttons!
+         If _can_drag(MouseX(),MouseY())
+            Drag Window
+         EndIf
+
+      `** End On Down **
+      Else
+      `** While KeyHeld **
+
+         `Some image swapping for the Buttons on the Interface
+         If _dist(MouseX(),MouseY(),590,53) <= 10
+            Set Sprite Image 102,104
+         Else
+            Set Sprite Image 102,102
+            If _dist(MouseX(),MouseY(),566,37) <= 10
+               Set Sprite Image 101,105
+            Else
+               Set Sprite Image 101,103
+            EndIf
+         EndIf
+
+         If _inzone(loc(0).x2 - 100,loc(0).y2 - 50,loc(0).x2,loc(0).y2,MouseX(),MouseY())
+            pressed = 1
+         Else
+            pressed = 0
+         EndIf
+
+         If _inzone(Screen Width()/2 - 45,loc(0).y2 - 50,Screen Width()/2 + 45,loc(0).y2 - 10,MouseX(),MouseY())
+            pressed2 = 1
+         Else
+            pressed2 = 0
+         EndIf
+
+
+      `** End Held **
+      EndIf : Else : If lmb = 1 : lmb = 0
+      `** On KeyUp **
+
+         If _dist(MouseX(),MouseY(),590,53) <= 10
+            Set Sprite Image 102,102
+            End
+         EndIf
+
+         If _dist(MouseX(),MouseY(),566,37) <= 10
+            Set Sprite Image 101,103
+            Minimize Window
+         EndIf
+
+         If pressed2 = 1 And correct = 1
+            continue = 1
+            pressed2 = 0
+         EndIf
+
+         If pressed = 1
+            continue = 1
+            pressed = 0
+         EndIf
+
+      `** End On Up **
+      EndIf : EndIf
+
+
+      If _inzone(loc(0).x2 - 100,loc(0).y2 - 50,loc(0).x2,loc(0).y2,MouseX(),MouseY())
+         active = 1
+      Else
+         active = 0
+      EndIf
+
+      If _inzone(Screen Width()/2 - 45,loc(0).y2 - 50,Screen Width()/2 + 45,loc(0).y2 - 10,MouseX(),MouseY())
+         active2 = 1
+      Else
+         active2 = 0
+      EndIf
+
+
+      StartText
+
+      Draw Color 0,150,50,100
+      Text AA 1,loc(0).x2 - 50,loc(0).y2 - 45,1,"Menu"
+
+      If NOT correct Then Draw Color 150,10,40,100
+      Text AA 1,Screen Width()/2,loc(0).y2 - 45,1,button
+
+      Draw Color 0,100,0,25
+      If pressed = 1
+         Text AA 1,loc(0).x2 - 49,loc(0).y2 - 44,1,"Menu"
+      Else
+         If active
+            Text AA 1,loc(0).x2 - 52,loc(0).y2 - 47,1,"Menu"
+         Else
+            Text AA 1,loc(0).x2 - 51,loc(0).y2 - 46,1,"Menu"
+         EndIf
+      EndIf
+
+      If NOT correct Then Draw Color 100,0,0,25
+      If pressed2 = 1
+         Text AA 1,Screen Width()/2 - 1,loc(0).y2 - 44,1,button
+      Else
+         If active2
+            Text AA 1,Screen Width()/2 + 2,loc(0).y2 - 47,1,button
+         Else
+            Text AA 1,Screen Width()/2 + 1,loc(0).y2 - 46,1,button
+         EndIf
+      EndIf
+
+      Draw Color 100,200,100,35
+      If pressed = 1
+         Text AA 1,loc(0).x2 - 51,loc(0).y2 - 46,1,"Menu"
+      Else
+         If active
+            Text AA 1,loc(0).x2 - 48,loc(0).y2 - 43,1,"Menu"
+         Else
+            Text AA 1,loc(0).x2 - 49,loc(0).y2 - 44,1,"Menu"
+         EndIf
+      EndIf
+
+      If NOT correct Then Draw Color 200,80,100,35
+      If pressed2 = 1
+         Text AA 1,Screen Width()/2 + 1,loc(0).y2 - 46,1,button
+      Else
+         If active2
+            Text AA 1,Screen Width()/2 - 2,loc(0).y2 - 43,1,button
+         Else
+            Text AA 1,Screen Width()/2 - 1,loc(0).y2 - 44,1,button
+         EndIf
+      EndIf
+
+      Draw Color 255,150,20,100
+      Text AA 3,Screen Width()/2,50,1,"Enter Code Below"
+      Text AA 1,Screen Width()/2,100,1,"Once a Valid Code is Entered, the button"
+      Text AA 1,Screen Width()/2,120,1,"Below the Text field will become green."
+      Text AA 1,Screen Width()/2,140,1,"Click it to jump to the Level"
+
+      Draw Color 180,100,0,25
+      Text AA 3,Screen Width()/2 + 1,51,1,"Enter Code Below"
+      Text AA 1,Screen Width()/2 + 1,101,1,"Once a Valid Code is Entered, the button"
+      Text AA 1,Screen Width()/2 + 1,121,1,"Below the Text field will become green."
+      Text AA 1,Screen Width()/2 + 1,141,1,"Click it to jump to the Level"
+
+      Draw Color 255,210,100,35
+      Text AA 3,Screen Width()/2 - 1,49,1,"Enter Code Below"
+      Text AA 1,Screen Width()/2 - 1,99,1,"Once a Valid Code is Entered, the button"
+      Text AA 1,Screen Width()/2 - 1,119,1,"Below the Text field will become green."
+      Text AA 1,Screen Width()/2 - 1,139,1,"Click it to jump to the Level"
+
+      EndText
+
+      Sync
+   Until continue = 1
+
+   If correct = 1 Then _load_level(leveljump) : ExitFunction 1
+
+EndFunction -1
+
+
+
+
+Function _load_level(level As Integer)
+
+   Local tmp As Integer
+   Local file As String
+   file = ".\levels\lvl" + Str$(level) + ".gam"
+
+   If NOT File Exist(file)
+      ExitFunction -1
+   EndIf
+
+   Empty Array av(0)
+
+   Open To Read 1,file
+   `Lives, CW, CCW, Reverse, up, down, right, left
+   For i = 0 To 7
+      If level <> currentlevel Then Read Word 1,use(i) Else Read Word 1,tmp
+   Next i
+   For y = 1 To 10
+      For x = 1 To 15
+         Read Word 1,tex(x,y)
+         Read Word 1,tmp
+         If level = currentlevel
+            If ( map(x,y) < 2 ) Or ( map(x,y) > 8 ) Then map(x,y) = tmp
+         Else
+            map(x,y) = tmp
+         EndIf
+         If map(x,y) >= 10 And map(x,y) <= 13
+            Array Insert At Bottom av(0)
+            av(Array Count(av(0))).kind = map(x,y)
+            map(x,y) = 20
+            av(Array Count(av(0))).xtile = x
+            av(Array Count(av(0))).ytile = y
+            av(Array Count(av(0))).x = ((x - 0.5) * maptilesize) + mapoffx
+            av(Array Count(av(0))).y = ((y - 0.5) * maptilesize) + mapoffy
+            av(Array Count(av(0))).speed = 1
+            Read Word 1,tmp
+            Select tmp
+               Case 1 : av(Array Count(av(0))).ydir = -1 : av(Array Count(av(0))).nexty = y - 1 : av(Array Count(av(0))).nextx = x : av(Array Count(av(0))).anim = 3 : av(Array Count(av(0))).animframe = 17 : EndCase
+               Case 2 : av(Array Count(av(0))).xdir = 1 : av(Array Count(av(0))).nexty = y : av(Array Count(av(0))).nextx = x + 1 : av(Array Count(av(0))).anim = 4 : av(Array Count(av(0))).animframe = 25 : EndCase
+               Case 3 : av(Array Count(av(0))).ydir = 1 : av(Array Count(av(0))).nexty = y + 1 : av(Array Count(av(0))).nextx = x : av(Array Count(av(0))).anim = 1 : av(Array Count(av(0))).animframe = 1 : EndCase
+               Case 4 : av(Array Count(av(0))).xdir = -1 : av(Array Count(av(0))).nexty = y : av(Array Count(av(0))).nextx = x - 1 : av(Array Count(av(0))).anim = 2 : av(Array Count(av(0))).animframe = 9 : EndCase
+               Case Default : EndCase
+            EndSelect
+            av(Array Count(av(0))).nextytile = av(Array Count(av(0))).nexty
+            av(Array Count(av(0))).nextxtile = av(Array Count(av(0))).nextx
+            If av(Array Count(av(0))).nexty > 10 Then av(Array Count(av(0))).nextytile = 1
+            If av(Array Count(av(0))).nexty < 1 Then av(Array Count(av(0))).nextytile = 10
+            If av(Array Count(av(0))).nextx > 15 Then av(Array Count(av(0))).nextxtile = 1
+            If av(Array Count(av(0))).nextx < 1 Then av(Array Count(av(0))).nextxtile = 15
+         EndIf
+         If map(x,y) = 0 Then map(x,y) = 20
+      Next x
+   Next y
+   Close File 1
+
+   totalavs = Array Count(av(0)) + 1
+
+   av1num = 0
+   av2num = 0
+
+   For i = 0 To Array Count(av(0))
+      If av(i).kind = 10 Then Inc av1num,1
+      If av(i).kind = 11 Then Inc av2num,1
+   Next i
+
+   If level <> currentlevel
+      ticktock = Timer()
+      trys = 0
+   EndIf
+
+   currentlevel = level
+   go = 0
+
+EndFunction 1
+
+
+Function _dist(x1,y1,x2,y2)
+   flt As Float
+   null = Make Vector2(1)
+   Set Vector2 1,x1 - x2,y1 - y2
+   flt = Length Vector2(1)
+EndFunction flt
+
+
+
+Function _inzone(x1,y1,x2,y2,x,y)
+   Local in As Boolean
+   in = 0
+   If x >= x1
+      If x <= x2
+         If y >= y1
+            If y <= y2 Then in = 1
+         EndIf
+      EndIf
+   EndIf
+EndFunction in
+
+
+
+Function _game_interface()
+
+   `Back for the interfaceable part down the bottom
+   Paste Sprite 108,109,329
+
+   `The Visuals of the characters remaining
+   If av1num = 0 Then Set Sprite Frame 109,2 Else Set Sprite Frame 109,1
+   If av2num = 0 Then Set Sprite Frame 110,2 Else Set Sprite Frame 110,1
+   Paste Sprite 109,116,363
+   Paste Sprite 110,162,363
+
+   `Sprites for click and drag peices.
+   For i = 2 To 8
+      If use(i-1) = 0 Then Set Sprite Frame i,2 Else Set Sprite Frame i,1
+      Paste Sprite i,(i-2)*30 + 215,385
+   Next i
+
+   `The Window sprites ( Window / X / _ )
+   Paste Sprite 103,0,0
+   Paste Sprite 101,566 - Sprite Width(101)/2,37 - Sprite Height(101)/2
+   Paste Sprite 102,590 - Sprite Width(102)/2,53 - Sprite Height(102)/2
+
+   `Go and Reset buttons
+   Paste Sprite 106,loc(4).x1,loc(4).y1
+   Paste Sprite 107,loc(5).x1,loc(5).y1
+
+EndFunction
+
+
+
+Function _menu_interface()
+
+   `Back for the Menu options up-top
+   Paste Sprite 111,99,137
+
+   `Back for the interfaceable part down the bottom
+   Paste Sprite 108,109,329
+
+   `The Window sprites ( Window / X / _ )
+   Paste Sprite 103,0,0
+   Paste Sprite 101,566 - Sprite Width(101)/2,37 - Sprite Height(101)/2
+   Paste Sprite 102,590 - Sprite Width(102)/2,53 - Sprite Height(102)/2
+
+EndFunction
+
+
+
+Function _display()
+
+   For y = 1 To 10
+      For x = 1 To 15
+         Set Sprite Frame 20,tex(x,y)
+         Paste Sprite 20,((x - 1) * maptilesize) + mapoffx,((y - 1) * maptilesize) + mapoffy
+         If ( map(x,y) > 1 ) And ( map(x,y) <= 8 ) Then Set Sprite Frame map(x,y),1
+         If Sprite Exist(map(x,y)) Then Paste Sprite map(x,y),((x - 1) * maptilesize) + mapoffx,((y - 1) * maptilesize) + mapoffy
+      Next x
+   Next y
+
+
+   For i = 0 To Array Count(av(0))
+      If NOT av(i).dead
+         If go
+            If Timer() - av(i).timeout > avatardelay
+               av(i).animframe = av(i).animframe + 1
+               If ( av(i).animframe > (av(i).anim * 8) ) Or ( av(i).animframe < ((av(i).anim - 1) * 8) + 1 )
+                  av(i).animframe = ((av(i).anim - 1) * 8) + 1
+               EndIf
+               av(i).timeout = Timer()
+               If (av(i).animframe MOD 8 = 0) AND (av(i).dying = 1)
+                  av(i).dying = 0
+                  av(i).dead = 1
+                  use(0) = use(0) - 1
+                  If use(0) = 0
+                     menus(1,3).text = ""
+                     _game_over("You Lost All Your Lives")
+                     If _main_menu() = -1
+                        _load_level(1)
+                        GoTo start
+                     EndIf
+                  EndIf
+                  Stop Sound 5
+                  _load_level(currentlevel)
+                  go = 0
+               EndIf
+            EndIf
+         EndIf
+         Set Sprite Frame av(i).kind,av(i).animframe
+         Paste Sprite av(i).kind,Int(av(i).x),Int(av(i).y)
+      EndIf
+   Next i
+
+EndFunction
+
+
+
+Function _can_drag(x As Integer,y As Integer)
+
+   Local result As Boolean
+   result = 0
+
+   If MemBlock DWord(100,((y*MemBlock DWord(100,0)) + x)*4 + 12) <> RGB(255,255,255)
+      result = 1
+      Paste Image 101,0,0
+   EndIf
+
+EndFunction result
+
+
+
+Function _update_avatars(scale As Float)
+
+   Local tmp1 As Float
+   Local tmp2 As Float
+
+   For i = 0 To Array Count(av(0))
+      `Move them along on the screen
+      av(i).x = av(i).x + (av(i).speed * av(i).xdir * scale)
+      av(i).y = av(i).y + (av(i).speed * av(i).ydir * scale)
+
+      tmp1 = ((av(i).nextx - 0.5) * maptilesize) + mapoffx
+      tmp2 = ((av(i).nexty - 0.5) * maptilesize) + mapoffy
+
+      `This check see's if the avatar has gone past the destination.
+      `If so, Move them along on the tiles
+      If ( (tmp1 - av(i).x)/Abs(tmp1 - av(i).x) <> av(i).xdir ) Or ( (tmp2 - av(i).y)/Abs(tmp2 - av(i).y) <> av(i).ydir )
+         `This only happens when the tiles change
+         av(i).x = ((av(i).nextxtile - 0.5) * maptilesize) + mapoffx
+         av(i).y = ((av(i).nextytile - 0.5) * maptilesize) + mapoffy
+
+         `Checking for things such as user-drops, and the exit
+         If map(av(i).nextxtile,av(i).nextytile) <= 8
+            Select map(av(i).nextxtile,av(i).nextytile)
+               Case 1 : `Win Condition
+                  av(i).dead = 1 : av(i).xdir = 0 : av(i).ydir = 0
+                  Dec totalavs,1
+                  endanim = 1
+                  If av(i).kind = 10 Then av1num = av1num - 1
+                  If av(i).kind = 11 Then av2num = av2num - 1
+                  If musicon Then Play Sound 1
+               EndCase
+               Case 2 : `Rotate CW
+                  _rotate_avatar(i,1)
+               EndCase
+               Case 3 : `Rotate CCW
+                  _rotate_avatar(i,0)
+               EndCase
+               Case 4 : `Reverse Direction
+                  av(i).xdir = av(i).xdir * -1 : av(i).ydir = av(i).ydir * -1
+               EndCase
+               Case 5 : `up arrow
+                  av(i).xdir = 0 : av(i).ydir = -1
+               EndCase
+               Case 6 : `down arrow
+                  av(i).xdir = 0 : av(i).ydir = 1
+               EndCase
+               Case 7 : `right arrow
+                  av(i).xdir = 1 : av(i).ydir = 0
+               EndCase
+               Case 8 : `left arrow
+                  av(i).xdir = -1 : av(i).ydir = 0
+               EndCase
+               Case Default : EndCase
+            EndSelect
+         EndIf
+
+         av(i).xtile = av(i).nextxtile
+         av(i).ytile = av(i).nextytile
+
+         av(i).nextx = av(i).xtile + av(i).xdir
+         av(i).nexty = av(i).ytile + av(i).ydir
+
+         av(i).nextxtile = av(i).nextx
+         av(i).nextytile = av(i).nexty
+
+         If av(i).nexty > 10 Then av(i).nextytile = 1
+         If av(i).nexty < 1 Then av(i).nextytile = 10
+         If av(i).nextx > 15 Then av(i).nextxtile = 1
+         If av(i).nextx < 1 Then av(i).nextxtile = 15
+
+         `The loop is for checking every route until a clear one is found
+         For m = 0 To 1
+            `If the next map peice is impassable
+            If ( map(av(i).nextxtile,av(i).nextytile) >= 21 ) And ( map(av(i).nextxtile,av(i).nextytile) <= 27 )
+               Select av(i).kind
+                  Case 10
+                     _rotate_avatar(i,1)
+                  EndCase
+                  Case 11
+                     _rotate_avatar(i,0)
+                  EndCase
+                  Case Default : EndCase
+               EndSelect
+               `reset the next tile values
+               av(i).nextx = av(i).xtile + av(i).xdir
+               av(i).nexty = av(i).ytile + av(i).ydir
+
+               av(i).nextxtile = av(i).nextx
+               av(i).nextytile = av(i).nexty
+
+               If av(i).nexty > 10 Then av(i).nextytile = 1
+               If av(i).nexty < 1 Then av(i).nextytile = 10
+               If av(i).nextx > 15 Then av(i).nextxtile = 1
+               If av(i).nextx < 1 Then av(i).nextxtile = 15
+               `Reset the control loop so that it continues.
+               m = 0
+            Else
+               `Set the control loop so that it loops again.
+               m = 1
+            EndIf
+         Next m
+
+
+         `Falling into the water
+         If ( map(av(i).nextxtile,av(i).nextytile) >= 28 ) And ( map(av(i).nextxtile,av(i).nextytile) <= 40 )
+            If av(i).dying = 0 And av(i).dead = 0
+               If ( ((tmp1 - 15) - av(i).x)/Abs((tmp1 - 15) - av(i).x) <> av(i).xdir ) Or ( ((tmp2 - 15) - av(i).y)/Abs((tmp2 - 15) - av(i).y) <> av(i).ydir )
+                  `Just on the edge of the water
+                  av(i).dying = 1
+                  If musicon Then Play Sound 2 : Stop Sound 5
+               EndIf
+            EndIf
+         EndIf
+
+         `Getting the right animation-set for the avatar
+         Select av(i).xdir
+            Case -1 : av(i).anim = 2 + (4 * av(i).dying) : EndCase
+            Case 1 : av(i).anim = 4 + (4 * av(i).dying) : EndCase
+            Case Default
+               Select av(i).ydir
+                  Case -1 : av(i).anim = 3 + (4 * av(i).dying) : EndCase
+                  Case 1 : av(i).anim = 1 + (4 * av(i).dying) : EndCase
+                  Case Default : EndCase
+               EndSelect
+            EndCase
+         EndSelect
+
+      EndIf
+   Next i
+
+EndFunction
+
+
+
+Function _rotate_avatar(num As Integer,CW As Boolean)
+
+   Local switch As Integer
+   `The resultant is -1 or 1
+   switch = (1 + ((CW - 1) * 2))
+
+   Select av(num).xdir
+      Case -1 : av(num).xdir = 0 : av(num).ydir = -1 * switch : EndCase
+      Case 1 : av(num).xdir = 0 : av(num).ydir = 1 * switch : EndCase
+      Case Default
+         Select av(num).ydir
+            Case -1 : av(num).ydir = 0 : av(num).xdir = 1 * switch : EndCase
+            Case 1 : av(num).ydir = 0 : av(num).xdir = -1 * switch : EndCase
+            Case Default : EndCase
+         EndSelect
+      EndCase
+   EndSelect
+
+EndFunction
+
+`1 = home square
+`2 = Rotate CW
+`3 = Rotate CCW
+`4 = Reverse Direction
+`5 = up arrow
+`6 = down arrow
+`7 = right arrow
+`8 = left arrow
+
+`10 = Avatar Type 1 - CW
+`11 = Avatar Type 2 - CCW
+`12 = Avatar Type 3 - CW Enemy
+`13 = Avatar Type 4 - CCW Enemy
+`Following an avatar is a second data item which
+`  tells which direction the avatar is facing in.
+`  1 = up
+`  2 = right
+`  3 = down
+`  4 = left
+
+`20 = normal terrain
+`21 = wall - horizontal
+`22 = wall - verticle
+`23 = wall - top-right corner
+`24 = wall - top-left corner
+`25 = wall - bottom-right corner
+`26 = wall - bottom-left corner
+`27 = rock
+`28 = water
+`29 = water - bottom
+`30 = water - top
+`31 = water - right
+`32 = water - left
+`33 = water - top-right corner
+`34 = water - top-left corner
+`35 = water - bottom-right corner
+`36 = water - bottom-left corner
+`37 = water - top-right inner corner
+`38 = water - top-left inner corner
+`39 = water - bottom-right inner corner
+`40 = water - bottom-left inner corner
+
+`Any number above or equal to 100 represents a teleport,
+`  There should be (only) two squares with the same
+`  number, which represents the teleport to/from locations
+`  without discrepency of which direction the travel is in
+
+codes:
+Data "onceuponatime","therewasaknight","indullarmour","whorodeintotown","onapony"
+Data "peoplelaughed","athimbutheknew","thatoneday","hewouldgethis","ownbackand","everyonewould","lovehimagain"
+Data "theonlyproblem","wasthatthe","knightisblind","asabat"
+Data "andhehadjust","onelegleft","afterheaccidentally","tresspassedina","dogkennel","whichimsure","isamistakehe","wontmaketwice"
+

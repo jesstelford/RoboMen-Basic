@@ -1,0 +1,374 @@
+RemStart
+These functions have a dependancy on my (JessTicular's) String functions,
+so don't forget to include them in your project too :)
+
+
+Functions in this file;
+
+   _input_init(x,y,innum,max)
+      x = xPos when initializing, will stay at this position unless manually changed
+      y = yPos when initializing.
+      num = flag, if 0, will allow both numbers and characters,
+                  if 1, Will only allow numbers to be entered,
+                  if 2, will allow only characters
+      max = Maximum allowed characters
+      Returns an Integer reference to the input feild
+
+
+   _input()
+      Will not work for keys that have an InKey$() function associated with them
+      Before you call this function, once ( and only once ), possibly at the start
+        of your app, call the "Clear Entry Buffer" command
+      You must also call the _init_input() function to initialize an input gadget
+
+
+   _input_change(num,str)
+      Will change the string of input number 'num' to 'str'
+
+
+   _input_set_active(num)
+      Will give focus to input field number 'num'
+
+
+   _input_get(num)
+      Returns the string of the input field 'num'
+
+
+   _input_get_active()
+      Returns the current input feild that has focus
+
+
+
+
+`########  -- Initialize variables for Input gadgets --  ########
+   Global totinp As Integer :`Total input feilds
+   Global ld As Boolean    :`LeftKey Down?
+   Global rd As Boolean    :`RightKey Down?
+   Global td As Boolean    :`TabKey Down?
+
+   Type uin
+      str As String        `The input string
+      strlen As DWord      `The length of the input string
+      x As Integer         `The x screen coord of the string
+      y As Integer         `The y screen coord
+      pos As DWord         `The cursor position in the string
+      posx As Integer      `The x screen coord of the cursor
+      posy As Integer      `The y screen coord of the cursor
+      flashtime As DWord   `The time between flash's
+      flash As DWord       `The time of the last flash
+      carret As String     `The string used to be the cursor
+      onoff As Integer     `If the cursor is to be shown or not
+      act As Boolean       `Is this input gadget active?
+      num As Integer       `What type of input is this? ( see _init_input() for types )
+      max As Integer       `Maximum amount of characters that can be entered
+      tab As Integer       `Tab Order of input boxes ( 1 is the first Tab and so on )
+   EndType
+
+   totinp = 0              :`There is no input gadgets yet
+
+   Global Dim in(totinp) As uin
+
+   in(0).x = 100
+   in(0).y = 100
+   in(0).flashtime = 400
+   in(0).carret = "|"
+   in(0).act = 1
+`########  -- End Input initialization --  ########
+remend
+
+
+
+
+
+Function _input_init(x As Integer, y As Integer,innum As Integer,max As Integer)
+   `x = xPos when initializing, will stay at this position unless manually changed ( not recomended )
+   `y = yPos when initializing.
+   `num = flag, if 0, will allow both numbers and characters,
+   `            if 1, Will only allow numbers to be entered,
+   `            if 2, will allow only characters
+   `max = Maximum allowed characters
+   `Returns a reference to the input feild
+
+      Array Insert At Bottom in(0)              :`Add a new item for input
+      Inc totinp                                :`Reflect this in the total input amount
+
+      in(totinp).x = x                          :`Initialize all the variables
+      in(totinp).y = y
+      in(totinp).num = innum
+      in(totinp).carret = "|"
+      in(totinp).max = max
+      in(totinp).tab = totinp
+
+
+EndFunction totinp
+
+
+
+
+
+Function _input()
+   `Notes,
+   `Will not work for keys that have an InKey$() function associated with them
+   `  this is because when InKey$() is called, DBP clears the value from the Entry Buffer
+   `Before you call this function, once ( and only once ), possibly at the start
+   `  of your app, call the "Clear Entry Buffer" command
+   `You must also call the _init_input() function to initialize an input gadget
+
+
+   Local tmpstr As String           :`Set up local variables
+   Local tmppos As Integer
+   Local entry As String
+   Local tmpentry As String
+   Local ascentry As Integer
+   Local anyentry As Boolean
+   Local nexttab As Integer
+
+   `Get the new part of the entry string ( if there is one )
+   `and, if the buffer has been cleared, then get the entire string
+   in(0).str = Entry$()
+   If in(0).strlen < Len(in(0).str)
+      entry = Right$(in(0).str,Len(in(0).str) - in(0).strlen)
+   Else
+      entry = ""
+   EndIf
+
+   `Store the lengthe of the entry string, so next loop it can be used above
+   in(0).strlen = Len(Entry$())
+
+   For inp = 1 To totinp            :`For each input gadget
+
+      If in(inp).act = 1            :`Only update if it is the active gadget
+
+
+         If Len(entry) > 0          :`No need to continue if nothing has been entered
+
+            anyentry = 1            :`Used later to mimic window's cursor
+
+            `Fix up the entry string so that it only has the desired characters
+            `Simply removes the unwanted characters from the entry string
+            If in(inp).num > 0
+               For i = 1 To Len(entry)
+                  ascentry = Asc(Mid$(entry,i))
+                  If in(inp).num = 1            :`If Only Numerical characters allowed
+                     If (( ascentry <= 57 ) And ( ascentry >= 48 )) Or ( ascentry = 46 ) Or ( ascentry = 8 )
+                        tmpentry = tmpentry + Mid$(entry,i)
+                     EndIf
+                  Else                          :`If Only Non-Numerical Characters allowed
+                     If ( ascentry > 57 ) Or ( ascentry < 48 )
+                        tmpentry = tmpentry + Mid$(entry,i)
+                     EndIf
+                  EndIf
+               Next i
+               entry = tmpentry
+            EndIf
+
+            tmpentry = ""
+
+            `Special characters that we don't want in the string ( 9 = TAB, 13 = RETURN )
+            For i = 1 To Len(entry)
+               ascentry = Asc(Mid$(entry,i))
+               If ( ascentry <> 9 ) And ( ascentry <> 13 )
+                  tmpentry = tmpentry + Mid$(entry,i)
+               EndIf
+            Next i
+            entry = tmpentry
+
+            `Determine if the string is at it's maximum length,
+            `if so, and BackSpace ISN'T pressed, then skip the string functions
+            `However, if BackSpace IS pressed, then continue on to fix up the string
+            If in(inp).max <> 0
+               If Len(in(inp).str) >= in(inp).max
+                  For i = 1 To Len(entry)
+                     If Asc(Mid$(entry,i)) <> 8 Then GoTo _end
+                  Next i
+               EndIf
+            EndIf
+
+            tmpstr = ""
+            tmppos = 0
+
+            in(inp).strlen = Len(in(inp).str)
+
+            in(inp).str = _insert_str(in(inp).str,entry,in(inp).pos)          :`insert the Entry buffer into the string for the input gadget
+
+            in(inp).pos = in(inp).pos + (Len(in(inp).str) - in(inp).strlen)   :`Fix up the position of cursor
+            in(inp).strlen = Len(in(inp).str)
+            tmppos = in(inp).pos
+
+
+            For i = in(inp).pos To 1 Step -1      :`Step through string, backwards
+               If Asc(Mid$(in(inp).str,i)) = 8    :`If the last values are that of the Backspace
+                  Dec in(inp).pos                 :`The length of the string should be 2 less ( the backspace + the key before it ) ( this only removes backspace, the key before is removed next )
+               Else
+                  If in(inp).pos <> tmppos Then Dec in(inp).pos   :`Here :)
+                  Exit                            :`If the next character is indeed a character, then jump out of the loop
+               EndIf
+            Next i
+
+            `Fix up the string if characters have been removed with "BackSpace"
+            in(inp).str = Left$(in(inp).str,in(inp).pos) + Right$(in(inp).str,in(inp).strlen - tmppos)
+            in(inp).strlen = Len(in(inp).str)
+
+            _end:
+
+
+         EndIf
+         `Do this even if there is no entry
+
+
+         If KeyState(203) Or KeyState(75) : If ld = 0  :`LEFT KEY
+         `** On Down **
+            ld = 1
+            If in(inp).pos > 0 Then Dec in(inp).pos   :`Move the cursor left if pressed
+            anyentry = 1                              :`Used later to mimic window's cursor
+         Else
+         `** While Held **
+         EndIf : Else : If ld = 1
+         `** On Up **
+            ld = 0
+         EndIf : EndIf
+
+
+         If KeyState(205) Or KeyState(75) : If rd = 0  :`RIGHT KEY
+         `** On Down **
+            rd = 1
+            If in(inp).pos < in(inp).strlen Then Inc in(inp).pos  :`Move the cursor Right if pressed
+            If in(inp).pos > in(inp).strlen Then in(inp).pos = in(inp).strlen
+            anyentry = 1                                          :`Used later to mimic window's cursor
+         Else
+         `** While Held **
+         EndIf : Else : If rd = 1
+         `** On Up **
+            rd = 0
+         EndIf : EndIf
+
+         `Get the screen coords of the position of the cursor for the active gadget
+         in(inp).posx = in(inp).x + Text Width(Space$(in(inp).pos)) - (Text Width(in(inp).carret)/2)
+         in(inp).posy = in(inp).y
+
+         `If the gadget is due to be shown, then show it
+         If ( in(inp).onoff = 1 ) Or ( anyentry = 1 )
+            StartText
+            Text AA 10,in(inp).posx,in(inp).posy,0,in(inp).carret
+            EndText
+            If anyentry = 1               :`If there was entry, to mimic windows, do this:
+               in(inp).onoff = 1
+               in(inp).flash = Timer()
+            EndIf
+         EndIf
+
+
+
+         If KeyState(15) : If td = 0  :`TabKey()
+         `** On Down **
+         td = 1
+            If in(inp).tab = totinp
+               nexttab = 1
+            Else
+               nexttab = in(inp).tab + 1
+            EndIf
+
+            For i = 1 To totinp
+               If in(i).tab = nexttab
+                  _input_set_active(i)
+               EndIf
+            Next i
+         Else
+         `** While Held **
+         EndIf : Else : If td = 1
+         `** On Up **
+         td = 0
+         EndIf : EndIf
+
+
+      EndIf
+      `Do even if it is not active
+      StartText
+      Text AA 10,in(inp).x,in(inp).y,0,in(inp).str         :`Print the results
+      EndText
+      `Determine the time since last flash of the gadgets cursor
+      If (Timer() - in(inp).flash) >= in(0).flashtime
+         in(inp).onoff = Abs(in(inp).onoff - 1)
+         in(inp).flash = Timer()
+      EndIf
+
+   Next inp
+
+
+EndFunction
+
+
+
+
+Function _input_change(num As Integer,str As String)
+   `Will change the string of the specified input, and will fix up all associated values
+   `Num is an array index from 1 To totinp
+   `str is the new string to replace what is currently there
+
+   in(num).str = str
+   in(num).strlen = Len(str)
+   in(num).pos = in(num).strlen
+
+   `Get the screen coords of the position of the cursor for the active gadget
+   in(num).posx = in(num).x + Text Width(Space$(in(num).pos)) - (Text Width(in(num).carret)/2)
+   in(num).posy = in(num).y
+
+
+EndFunction
+
+
+
+
+Function _input_set_active(num As Integer)
+   `Will change the focus to the specified input string
+   `Num is an array index from 1 To totinp
+
+   For i = 1 To totinp
+      If in(i).act = 1 Then in(i).act = 0
+   Next i
+
+   in(num).act = 1
+
+   in(num).pos = in(num).strlen
+
+   `Get the screen coords of the position of the cursor for the active gadget
+   in(num).posx = in(num).x + Text Width(Space$(in(num).pos)) - (Text Width(in(num).carret)/2)
+   in(num).posy = in(num).y
+
+EndFunction
+
+
+
+
+Function _input_get(num As Integer)
+   `Returns the current input string
+   `Num is an array index from 1 To totinp
+
+   Local str As String
+   str = in(num).str
+
+EndFunction str
+
+
+
+
+
+Function _input_get_active()
+   `Returns the current input feild that has focus-+
+
+   For i = 1 To totinp
+      If in(i).act = 1 Then ExitFunction i
+   Next i
+
+EndFunction i
+
+
+
+Function _input_set_tab_order(num As Integer,tab As Integer)
+
+   in(num).tab = tab
+   For i = 1 To totinp
+      If ( i <> num ) And ( in(i).tab >= tab ) Then in(i).tab = in(i).tab + 1
+   Next i
+
+EndFunction

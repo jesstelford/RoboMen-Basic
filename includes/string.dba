@@ -1,0 +1,224 @@
+RemStart Functions contained in this file;
+
+   _strip_space(part,sstr)
+      str is the string to be striped.
+      part can be 1, 2 or 3.
+         1 to strip space at the start of the string
+         2 to strip space at the end of the string
+         3 to strip all space in the string
+      Will return "ERROR" if failed, otherwise, will return modified string
+
+
+   _str_delim(sstr$,fchar$,lchar$,num)
+      sstr$ is the string to be searched
+      fchar$ is the first character to search from
+      lchar$ is the second character to search two
+      num is the occurance of the fchar$ and lchar$ to get between
+         if this is 0, the characters from the start of the string to the first fchar$
+         if it is greater than the number of occurances in str, null string will be returned
+      Will return the string between fchar$ and lchar$ in sstr$
+
+
+   _insert_str(str,instr,pos)
+      Inserts 'instr' into 'str' between 'pos' and 'pos' + 1
+      Returns the new string
+
+
+   _cut_str(str,pos1,pos2)
+      Removes all the characters from pos1 to pos2 inclusive from str
+      Returns the new string
+
+
+   _str_change(str,oldchar,newchar)
+      Replaces all occurances of oldchar in str with newchar
+
+
+   _src_str(str,src,num)
+      Finds the 'num'th occurance of 'src' in 'str'
+      Returns the position of this
+
+   _mid_str(str,pos1,pos2)
+      Returns the String from pos1 to pos2 in 'str' inclusive
+
+
+RemEnd
+
+
+Function _strip_space(part As Integer,sstr As String)
+
+
+   `str is the string to be striped.
+   `part can be 1, 2 or 3.
+      `1 to strip space at the start of the string
+      `2 to strip space at the end of the string
+      `3 to strip all space in the string
+
+   strlen = Len(sstr)
+   tmpstr$ = ""
+
+   If part = 1
+      For i = 1 To strlen
+         If Mid$(sstr,i) <> " "
+            tmpstr$ = Right$(sstr,strlen - i + 1)
+            ExitFunction tmpstr$
+         EndIf
+      Next i
+   EndIf
+
+   If part = 2
+      For i = strlen To 1 Step -1
+         If Mid$(sstr,i) <> " "
+            tmpstr$ = Left$(sstr,i)
+            ExitFunction tmpstr$
+         EndIf
+      Next i
+   EndIf
+
+   If part = 3
+      For i = 1 To strlen
+         If Mid$(sstr,i) <> " "
+            tmpstr$ = tmpstr$ + Mid$(sstr,i)
+         EndIf
+      Next i
+      ExitFunction tmpstr$
+   EndIf
+
+
+EndFunction "Error"
+
+
+
+
+Function _str_delim(sstr$,fchar$,lchar$,num)
+
+   `sstr$ is the string to be searched
+   `fchar$ is the first character to search from
+   `lchar$ is the second character to search two
+   `num is the occurance of the fchar$ and lchar$ to get between
+      `if this is 0, the characters from the start of the string to the first fchar$
+      `if it is greater than the number of occurances in str, null string will be returned
+   `Example:
+   `  _str_delim("Hello [World] I'm great","[","]",1) will return 'World'
+   `  _str_delim("Bli^ng& Bling Means ^Money&","^","&",2) will return 'Money'
+
+   sstr$ = sstr$ + Chr$(10)
+
+   strlen = Len(sstr$)
+   delimstr$ = ""
+   found = 0
+   strmid$ = ""
+   delstart = 0
+   delend = 0
+   delcur = 0
+
+   For i = 1 To strlen
+
+      strmid$ = Mid$(sstr$,i)
+
+      If found = 0
+         If strmid$ = fchar$
+            Inc delcur
+            If i < strlen - 2 And ( delcur = num Or num = 0 )
+               If num = 0
+                  delend = i - 1
+                  Exit
+               Else
+                  delstart = i
+               EndIf
+               found = 1
+            EndIf
+         EndIf
+      Else
+         If strmid$ = lchar$
+            delend = i - 1
+            Exit
+         EndIf
+      EndIf
+
+   Next i
+
+   If delend = 0 Then ExitFunction ""
+
+   delimstr$ = Left$(sstr$,delend)
+   delimstr$ = Right$(delimstr$,Len(delimstr$) - delstart)
+
+
+EndFunction delimstr$
+
+
+
+
+
+Function _insert_str(str As String,instr As String,pos As Integer)
+   `This function will,
+   `  insert 'instr' into 'str' between 'pos' and 'pos' + 1
+   `  and, will return the new string
+
+   str = Left$(str,pos) + instr + Right$(str,Len(str) - pos)
+
+EndFunction str
+
+
+
+
+Function _cut_str(str As String,pos1 As Integer,pos2 As Integer)
+   `Removes all the characters from pos1 to pos2 inclusive from str
+   `Returns the new string
+
+   str = Left$(str,(pos1 - 1)) + Right$(str,Len(str) - pos2)
+
+EndFunction str
+
+
+
+Function _str_change(str As String, oldchar As String, newchar As String)
+
+   retval As String
+   char As String
+   char = ""
+   retval = ""
+
+   For i = 1 To Len(str)
+      char = Mid$(str,i)
+      If char = oldchar Then char = newchar
+      retval = retval + char
+   Next i
+
+EndFunction retval
+
+
+
+Function _src_str(str As String,src As String,num As Integer)
+
+   retval As Integer
+   char As Integer
+   counter As Integer
+   char = 1
+
+   For i = 1 To Len(str)
+      If Lower$(Mid$(str,i)) = Lower$(Mid$(src,char))
+         If char = Len(src)
+            Inc counter
+            If counter = num
+               retval = i + 1 - Len(src)
+               ExitFunction retval
+            Else
+               char = 1
+            EndIf
+         Else
+            Inc char
+         EndIf
+      Else
+         char = 1
+      EndIf
+   Next i
+
+
+EndFunction 0
+
+
+Function _mid_str(str As String,pos1 As Integer,pos2 As Integer)
+
+   str = Left$(Right$(str,Len(str) - (pos1 - 1)),pos2 - pos1 + 1)
+
+EndFunction str

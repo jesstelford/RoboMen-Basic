@@ -1,0 +1,233 @@
+remstart Sync On : Sync Rate 0
+Set Window On
+
+
+`Declare Misc constant(s)
+#Constant NULL 0
+
+
+
+
+file As String
+
+file = _open_save("All Files ( *.* )|*.*|","C:\","Open File","pei",1)
+
+While InKey$() <> "q"
+   Text 0,0,file
+   Sync
+EndWhile
+
+End
+remend
+
+
+Function _open_save(filter As String,initdir As String,dtitle As String,defext As String,open As Boolean)
+   `filter = "Text Documents ( *.txt )|*.txt|All Files ( *.* )|*.*|"
+   `initdir = "C:\"
+   `dtitle = "Open ~ Test"
+   `defext = "txt"
+   `open = 1 For Open Dialogu, 0 for save dialogue
+
+
+   `Get DLL numbers
+   user32 As Integer
+   comdlg32 As Integer
+
+   `Load in required DLL's
+   user32 = _find_free_dll()
+   Load DLL "user32.dll",user32
+   comdlg32 = _find_free_dll()
+   Load DLL "comdlg32.dll",comdlg32
+
+
+   `Get handle ( unique ID ) to the calling ( this ) window
+   hwnd As DWord
+   hwnd = Call DLL(user32,"GetActiveWindow")
+
+
+   `Unload DLL as it is no longer needed
+   Delete DLL user32
+
+
+   `Get the Memblock Number
+   OPENFILENAME As Integer
+   OPENFILENAME = _find_free_memblock()
+   `Make The Memblock containing the OPENFILENAME structure
+   Make MemBlock OPENFILENAME,76
+
+
+   `Get the pointer to the just created Structure
+   lpofn As DWord
+   lpofn = Get MemBlock Ptr(OPENFILENAME)
+
+
+   `Write all the info to the Structure for the API call to handle it.
+   RemStart : C++ Structure Lay-out
+   typedef struct tagOFN {
+     DWORD         lStructSize;
+     HWND          hwndOwner;
+     HINSTANCE     hInstance;
+     LPCTSTR       lpstrFilter;
+     LPTSTR        lpstrCustomFilter;
+     DWORD         nMaxCustFilter;
+     DWORD         nFilterIndex;
+     LPTSTR        lpstrFile;
+     DWORD         nMaxFile;
+     LPTSTR        lpstrFileTitle;
+     DWORD         nMaxFileTitle;
+     LPCTSTR       lpstrInitialDir;
+     LPCTSTR       lpstrTitle;
+     DWORD         Flags;
+     WORD          nFileOffset;
+     WORD          nFileExtension;
+     LPCTSTR       lpstrDefExt;
+     LPARAM        lCustData;
+     LPOFNHOOKPROC lpfnHook;
+     LPCTSTR       lpTemplateName;
+   #if (_WIN32_WINNT >= 0x0500)
+     void *        pvReserved;
+     DWORD         dwReserved;
+     DWORD         FlagsEx;
+   #endif // (_WIN32_WINNT >= 0x0500)
+   } OPENFILENAME, *LPOPENFILENAME;
+   RemEnd
+
+   `Declare temp variables to hold data for OPENFILENAME structure
+   size As Integer
+   filebuffer As String
+   filebufferptr As DWord
+   flags As DWord
+
+   filter = filter + "|"
+   initdir = initdir + "|"
+   dtitle = dtitle + "|"
+   defext = defext + "|"
+   filebuffer = "|" + Space$(255) + "|"
+   filebufferptr = _get_str_ptr(filebuffer)
+   flags = 0x00001000 || 0x00000004 || 0x00000002
+   size = 0
+
+   Write MemBlock DWord OPENFILENAME,0,76                     : `lStructSize
+   Write MemBlock DWord OPENFILENAME,4,hwnd                   : `hwndOwner
+   `Write MemBlock DWord OPENFILENAME,8,NULL                   : `hInstance
+   Write MemBlock DWord OPENFILENAME,12,_get_str_ptr(filter)  : `lpstrFilter
+   `Write MemBlock DWord OPENFILENAME,16,0                     : `lpstrCustomFilter
+   `Write MemBlock DWord OPENFILENAME,20,NULL                  : `nMaxCustFilter
+   Write MemBlock DWord OPENFILENAME,24,1                     : `nFilterIndex
+   Write MemBlock DWord OPENFILENAME,28,filebufferptr         : `lpstrFile
+   Write MemBlock DWord OPENFILENAME,32,256                   : `nMaxFile
+   `Write MemBlock DWord OPENFILENAME,36,0                     : `lpstrFileTitle
+   `Write MemBlock DWord OPENFILENAME,40,NULL                  : `nMaxFileTitle
+   Write MemBlock DWord OPENFILENAME,44,_get_str_ptr(initdir) : `lpstrInitialDir
+   Write MemBlock DWord OPENFILENAME,48,_get_str_ptr(dtitle)  : `lpstrTitle
+   Write MemBlock DWord OPENFILENAME,52,flags                 : `Flags
+   `Write MemBlock Word OPENFILENAME,56,NULL                   : `nFileOffset
+   `Write MemBlock Word OPENFILENAME,58,NULL                   : `nFileExtension
+   Write MemBlock DWord OPENFILENAME,60,_get_str_ptr(defext)  : `lpstrDefExt
+   `Write MemBlock DWord OPENFILENAME,64,NULL                  : `lCustData
+   `Write MemBlock DWord OPENFILENAME,68,NULL                  : `lpfnHook
+   `Write MemBlock DWord OPENFILENAME,72,0                     : `lpTemplateName
+
+
+   `Call the Command to open the dialouge
+   retval As DWord
+   If open
+      retval = Call DLL(comdlg32,"GetOpenFileNameA",lpofn)
+   Else
+      retval = Call DLL(comdlg32,"GetSaveFileNameA",lpofn)
+   EndIf
+
+   `Check if it was sucecfull
+   If retval <> 0
+      code$ = _get_str(filebufferptr,256)
+   Else
+      retval = Call DLL(comdlg32,"CommDlgExtendedError")
+      Select retval
+         Case 0xFFFF : code$ = "The dialog box could not be created. The common dialog box function's call to the DialogBox function failed. For example, this error occurs if the common dialog box call specifies an invalid window handle." : EndCase
+         Case 0x0006 : code$ = "The common dialog box function failed to find a specified resource." : EndCase
+         Case 0x0004 : code$ = "The ENABLETEMPLATE flag was set in the Flags member of the initialization structure for the corresponding common dialog box, but you failed to provide a corresponding instance handle." : EndCase
+         Case 0x0002 : code$ = "The common dialog box function failed during initialization. This error often occurs when sufficient memory is not available." : EndCase
+         Case 0x000B : code$ = "The ENABLEHOOK flag was set in the Flags member of the initialization structure for the corresponding common dialog box, but you failed to provide a pointer to a corresponding hook procedure." : EndCase
+         Case 0x0008 : code$ = "The common dialog box function failed to lock a specified resource." : EndCase
+         Case 0x0003 : code$ = "The ENABLETEMPLATE flag was set in the Flags member of the initialization structure for the corresponding common dialog box, but you failed to provide a corresponding template." : EndCase
+         Case 0x0007 : code$ = "The common dialog box function failed to load a specified string." : EndCase
+         Case 0x0001 : code$ = "The lStructSize member of the initialization structure for the corresponding common dialog box is invalid." : EndCase
+         Case 0x0005 : code$ = "The common dialog box function failed to load a specified string." : EndCase
+         Case 0x3003 : code$ = "The buffer pointed to by the lpstrFile member of the OPENFILENAME structure is too small for the file name specified by the user. The first two bytes of the lpstrFile buffer contain an integer value specifying the size, in TCHARs, required to receive the full name." : EndCase
+         Case 0x0009 : code$ = "The common dialog box function was unable to allocate memory for internal structures." : EndCase
+         Case 0x3002 : code$ = "A file name is invalid." : EndCase
+         Case 0x000A : code$ = "The common dialog box function was unable to lock the memory associated with a handle." : EndCase
+         Case 0x3001 : code$ = "An attempt to subclass a list box failed because sufficient memory was not available." : EndCase
+         Case Default : code$ = "WHOOPS!" : EndCase
+      EndSelect
+   EndIF
+
+   Delete DLL comdlg32
+
+
+EndFunction code$
+
+
+
+
+
+
+Function _get_str_ptr(pstr As String)
+   `pstr$ should be a "|" ( NULL ) seperated string.
+
+   memnum As Integer
+   strlen As Integer
+   char As Byte
+   memptr As DWord
+   strptr As DWord
+
+   memnum = _find_free_memblock()
+   strlen = Len(pstr)
+
+   Make MemBlock memnum,strlen
+
+   For i = 1 To strlen
+      If Mid$(pstr,i) = "|"
+         char = 0
+      Else
+         char = Asc(Mid$(pstr,i))
+      EndIf
+      Write MemBlock Byte memnum,(i - 1),char
+   Next i
+
+   memptr = Get MemBlock Ptr(memnum)
+
+   strptr = Make Memory(strlen)
+
+   Copy Memory strptr,memptr,strlen
+
+   Delete MemBlock memnum
+
+
+EndFunction strptr
+
+
+
+Function _get_str(strptr As DWord,strsize As Integer)
+   `strptr is the pointer returned by _get_str_ptr()
+   `strsize is the Integer length of the string specified by the pointer
+
+   memnum As Integer
+   memptr As DWord
+   str As String
+   char As String
+
+   memnum = _find_free_memblock()
+
+   Make MemBlock memnum,strsize
+
+   memptr = Get MemBlock Ptr(memnum)
+
+   Copy Memory memptr,strptr,strsize
+
+   For i = 1 To strsize
+      str = str + Chr$(MemBlock Byte(memnum,i - 1))
+   Next i
+
+
+EndFunction str
